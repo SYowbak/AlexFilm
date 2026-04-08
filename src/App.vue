@@ -12,8 +12,8 @@
         </router-link>
 
         <nav class="hidden md:flex items-center gap-6">
-          <router-link to="/" class="text-gray-300 hover:text-neon font-medium transition-colors" active-class="text-neon border-b-2 border-neon pb-1">Головна</router-link>
-          <router-link to="/favorites" class="text-gray-300 hover:text-neon font-medium transition-colors" active-class="text-neon border-b-2 border-neon pb-1">Улюблені</router-link>
+          <router-link to="/" class="text-slate-300 hover:text-neon font-medium transition-colors" active-class="text-neon border-b-2 border-neon pb-1">Головна</router-link>
+          <router-link to="/favorites" class="text-slate-300 hover:text-neon font-medium transition-colors" active-class="text-neon border-b-2 border-neon pb-1">Улюблені</router-link>
         </nav>
 
         <div class="flex items-center gap-4">

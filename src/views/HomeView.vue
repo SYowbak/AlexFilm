@@ -3,7 +3,7 @@
     
     <!-- Hero секція з пошуком -->
     <div class="text-center mb-12">
-      <h1 class="text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-neon to-blue-500 mb-4 tracking-tight">AlexFilm</h1>
+      <h1 class="text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-neon via-amber-400 to-yellow-600 mb-4 tracking-tight">AlexFilm</h1>
       <p class="text-gray-400 mb-8 max-w-2xl mx-auto text-lg">Знайди ідеальний фільм під свій настрій або скористайся розширеним пошуком</p>
       
       <SearchBar @search="handleSearch" @clear="handleClearSearch" />

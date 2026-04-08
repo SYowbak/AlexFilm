@@ -1,12 +1,12 @@
 <template>
   <div class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
     <div class="mb-12">
-      <h1 class="text-4xl pr-4 font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-neon to-blue-500 mb-4 inline-block tracking-tight border-b-4 border-neon">Улюблені фільми</h1>
+      <h1 class="text-4xl pr-4 font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-neon to-amber-500 mb-4 inline-block tracking-tight border-b-4 border-neon">Улюблені фільми</h1>
     </div>
 
-    <div v-if="!authStore.user" class="text-center py-20 bg-gray-800/50 rounded-2xl border border-gray-700/50">
-      <h3 class="text-2xl text-gray-300 font-semibold mb-4">Ви не авторизовані 🔒</h3>
-      <p class="text-gray-400 mb-6">Увійдіть у свій акаунт, щоб мати доступ до списку улюблених фільмів.</p>
+    <div v-if="!authStore.user" class="text-center py-20 bg-slate-900/50 rounded-2xl border border-slate-800/50">
+      <h3 class="text-2xl text-slate-300 font-semibold mb-4">Ви не авторизовані 🔒</h3>
+      <p class="text-slate-400 mb-6">Увійдіть у свій акаунт, щоб мати доступ до списку улюблених фільмів.</p>
       <router-link to="/login" class="btn-neon px-8 py-3 text-lg">Увійти</router-link>
     </div>
 
@@ -18,9 +18,9 @@
       />
     </div>
 
-    <div v-else class="text-center py-20 bg-gray-800/50 rounded-2xl border border-gray-700/50">
-      <h3 class="text-2xl text-gray-300 font-semibold mb-2">Список порожній 😔</h3>
-      <p class="text-gray-400 mb-6">Шукайте фільми та додавайте їх до списку улюблених.</p>
+    <div v-else class="text-center py-20 bg-slate-900/50 rounded-2xl border border-slate-800/50">
+      <h3 class="text-2xl text-slate-300 font-semibold mb-2">Список порожній 😔</h3>
+      <p class="text-slate-400 mb-6">Шукайте фільми та додавайте їх до списку улюблених.</p>
       <router-link to="/" class="btn-outline-neon inline-block">На головну</router-link>
     </div>
   </div>

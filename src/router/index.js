@@ -4,6 +4,7 @@ import MovieDetailsView from '../views/MovieDetailsView.vue'
 import LoginView from '../views/LoginView.vue'
 import RegisterView from '../views/RegisterView.vue'
 import FavoritesView from '../views/FavoritesView.vue'
+import IPTVView from '../views/IPTVView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),

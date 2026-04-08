@@ -67,10 +67,10 @@
               </svg>
               <span class="font-bold text-white">{{ movie.vote_average.toFixed(1) }}</span>
             </span>
-            <span class="bg-gray-800 px-3 py-1.5 rounded-lg text-gray-300 border border-gray-700">
+            <span class="bg-slate-800 px-3 py-1.5 rounded-lg text-slate-300 border border-slate-700">
               {{ new Date(movie.release_date).getFullYear() }}
             </span>
-            <span class="bg-gray-800 px-3 py-1.5 rounded-lg text-gray-300 border border-gray-700">
+            <span class="bg-slate-800 px-3 py-1.5 rounded-lg text-slate-300 border border-slate-700">
               {{ formatRuntime(movie.runtime) }}
             </span>
           </div>
@@ -87,21 +87,21 @@
 
           <div class="mb-8">
             <h3 class="text-xl font-semibold text-white mb-3">Опис</h3>
-            <p class="text-gray-300 leading-relaxed">{{ movie.overview || 'Опис українською мовою поки що відсутній.' }}</p>
+            <p class="text-slate-300 leading-relaxed">{{ movie.overview || 'Опис українською мовою поки що відсутній.' }}</p>
           </div>
 
           <!-- Де подивитися -->
-          <div class="mt-8 bg-gray-800/30 rounded-2xl p-6 border border-gray-700/50 backdrop-blur-sm">
+          <div class="mt-8 bg-slate-900/50 rounded-2xl p-6 border border-slate-800/50 backdrop-blur-sm">
             <h3 class="text-xl font-semibold text-white mb-3 border-l-4 border-neon pl-3">Шукати в українській озвучці</h3>
             
-            <div class="mb-5 bg-black/40 p-3 rounded-lg border border-gray-700/50">
-              <label class="flex items-center gap-3 text-sm text-gray-300 cursor-pointer hover:text-white transition-colors w-max">
-                <input type="checkbox" v-model="useOriginalTitle" class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-neon focus:ring-neon focus:ring-offset-gray-900">
+            <div class="mb-5 bg-black/40 p-3 rounded-lg border border-slate-800/50">
+              <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer hover:text-white transition-colors w-max">
+                <input type="checkbox" v-model="useOriginalTitle" class="w-4 h-4 rounded border-slate-600 bg-slate-700 text-neon focus:ring-neon focus:ring-offset-slate-950">
                 <span>
-                  Шукати за оригінальною назвою <span class="text-gray-400 ml-1">({{ movie.original_title }})</span>
+                  Шукати за оригінальною назвою <span class="text-slate-400 ml-1">({{ movie.original_title }})</span>
                 </span>
               </label>
-              <p class="text-xs text-gray-500 mt-2 ml-7">Піратські кінотеатри часто краще знаходять фільми саме за англійською назвою, якщо офіційний переклад ще не вийшов.</p>
+              <p class="text-xs text-slate-500 mt-2 ml-7">Піратські кінотеатри часто краще знаходять фільми саме за англійською назвою, якщо офіційний переклад ще не вийшов.</p>
             </div>
 
             <div class="flex flex-wrap gap-3">
@@ -134,11 +134,11 @@
         <h3 class="text-2xl font-bold text-white mb-6 border-l-4 border-neon pl-3">В головних ролях</h3>
         <div class="flex gap-4 overflow-x-auto pb-4 hide-scrollbar">
           <div v-for="actor in cast" :key="actor.id" class="w-32 flex-shrink-0 text-center">
-            <div class="w-24 h-24 mx-auto rounded-full overflow-hidden mb-3 border-2 border-gray-700">
+            <div class="w-24 h-24 mx-auto rounded-full overflow-hidden mb-3 border-2 border-slate-700">
               <img :src="tmdbApi.getImageUrl(actor.profile_path, 'w185')" :alt="actor.name" class="w-full h-full object-cover">
             </div>
-            <p class="text-gray-200 text-sm font-semibold truncate">{{ actor.name }}</p>
-            <p class="text-gray-500 text-xs truncate">{{ actor.character }}</p>
+            <p class="text-slate-200 text-sm font-semibold truncate">{{ actor.name }}</p>
+            <p class="text-slate-500 text-xs truncate">{{ actor.character }}</p>
           </div>
         </div>
       </div>
