@@ -4,13 +4,13 @@
 
 @layer base {
   body {
-    @apply bg-gray-900 text-gray-100 min-h-screen font-sans;
+    @apply bg-slate-950 text-gray-100 min-h-screen font-sans;
   }
 }
 
 @layer components {
   .btn-neon {
-    @apply relative overflow-hidden transition-all duration-300 font-bold tracking-wider text-sm rounded bg-gray-800 text-neon border border-neon/50 hover:bg-neon hover:text-gray-900 hover:shadow-[0_0_15px_rgba(0,212,255,0.7)];
+    @apply relative overflow-hidden transition-all duration-300 font-bold tracking-wider text-sm rounded bg-gray-800 text-neon border border-neon/50 hover:bg-neon hover:text-gray-900 hover:shadow-[0_0_20px_rgba(255,204,0,0.6)];
   }
   .btn-outline-neon {
     @apply px-4 py-2 border border-neon/50 text-neon rounded-lg hover:bg-neon/10 transition-colors whitespace-nowrap;

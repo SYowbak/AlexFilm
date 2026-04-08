@@ -11,13 +11,13 @@
 
     <!-- Завантаження -->
     <div v-else-if="loading" class="flex justify-center items-center py-20">
-      <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-neon"></div>
+      <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-amber-500"></div>
     </div>
 
     <!-- Пустий стан -->
     <div v-else class="text-center py-20">
-      <h3 class="text-2xl text-gray-400 font-semibold mb-2">Фільмів не знайдено 😔</h3>
-      <p class="text-gray-500">Спробуйте змінити критерії пошуку або обрати іншу категорію настрою.</p>
+      <h3 class="text-2xl text-slate-400 font-semibold mb-2">Фільмів не знайдено 😔</h3>
+      <p class="text-slate-500">Спробуйте змінити критерії пошуку або обрати іншу категорію настрою.</p>
     </div>
 
     <!-- Пагінація -->
@@ -25,7 +25,7 @@
       <button 
         @click="$emit('page-change', currentPage - 1)"
         :disabled="currentPage === 1"
-        class="px-4 py-2 rounded-lg bg-gray-800 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700 transition"
+        class="px-4 py-2 rounded-lg bg-slate-800 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-700 transition"
       >
         Попередня
       </button>
@@ -36,16 +36,15 @@
           :key="page"
           @click="$emit('page-change', page)"
           class="min-w-[40px] h-10 rounded-lg flex items-center justify-center transition-colors"
-          :class="currentPage === page ? 'bg-neon text-gray-900 font-bold' : 'bg-gray-800 text-white hover:bg-gray-700'"
+          :class="currentPage === page ? 'bg-neon text-slate-950 font-bold' : 'bg-slate-800 text-white hover:bg-slate-700'"
         >
           {{ page }}
         </button>
       </div>
-
       <button 
         @click="$emit('page-change', currentPage + 1)"
         :disabled="currentPage === totalPages"
-        class="px-4 py-2 rounded-lg bg-gray-800 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700 transition"
+        class="px-4 py-2 rounded-lg bg-slate-800 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-700 transition"
       >
         Наступна
       </button>

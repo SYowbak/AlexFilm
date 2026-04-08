@@ -1,6 +1,6 @@
 <template>
   <div 
-    class="relative group rounded-xl overflow-hidden bg-gray-800 border border-gray-700/50 hover:border-neon transition-all duration-300 shadow-lg hover:shadow-[0_0_20px_rgba(0,212,255,0.2)] cursor-pointer"
+    class="relative group rounded-xl overflow-hidden bg-slate-900 border border-slate-800/50 hover:border-neon transition-all duration-300 shadow-lg hover:shadow-[0_0_20px_rgba(255,204,0,0.2)] cursor-pointer"
     @click="goToDetails"
   >
     <!-- Постер -->
@@ -19,9 +19,9 @@
       >
       
       <!-- Оверлей при наведенні -->
-      <div class="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
-        <p class="text-sm text-gray-300 line-clamp-3 mb-2">{{ movie.overview || 'Опис відсутній...' }}</p>
-        <button class="btn-neon py-2 text-xs w-full">Детальніше</button>
+      <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
+        <p class="text-xs text-slate-200 line-clamp-3 mb-2 leading-relaxed">{{ movie.overview || 'Опис відсутній...' }}</p>
+        <button class="btn-neon py-2 text-[10px] w-full uppercase tracking-tighter">Детальніше</button>
       </div>
 
       <!-- Рейтинг -->
@@ -35,11 +35,11 @@
       <!-- Улюблені -->
       <button 
         @click.stop="toggleFavorite"
-        class="absolute top-2 left-2 w-8 h-8 rounded-full bg-black/80 backdrop-blur-sm border border-gray-700 flex items-center justify-center transition-colors hover:bg-gray-800 hover:border-red-500"
+        class="absolute top-2 left-2 w-8 h-8 rounded-full bg-black/80 backdrop-blur-sm border border-slate-700 flex items-center justify-center transition-colors hover:bg-slate-800 hover:border-red-500"
       >
         <svg 
           class="w-5 h-5 transition-colors"
-          :class="isFavorite ? 'text-red-500 fill-current' : 'text-gray-400'"
+          :class="isFavorite ? 'text-red-500 fill-current' : 'text-slate-400'"
           fill="none" viewBox="0 0 24 24" stroke="currentColor"
         >
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
@@ -52,10 +52,9 @@
       <h3 class="text-white font-semibold line-clamp-1 group-hover:text-neon transition-colors" :title="movie.title">
         {{ movie.title }}
       </h3>
-      <div class="mt-2 flex items-center justify-between text-sm text-gray-400">
+      <div class="mt-2 flex items-center justify-between text-sm text-slate-400">
         <span>{{ new Date(movie.release_date).getFullYear() || 'Невідомо' }}</span>
         <span v-if="movie.genre_ids.length > 0" class="truncate ml-2 text-right opacity-70">
-           <!-- У реальному додатку тут зазвичай мапинг id жанрів у назви, але для card це опціонально -->
            TMDB Фільм
         </span>
       </div>

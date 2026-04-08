@@ -5,24 +5,26 @@
 
   <div v-else-if="movie" class="pb-20">
     <!-- Зображення бекдропу (тло) -->
-    <div 
-      class="relative h-[60vh] md:h-[70vh] w-full bg-cover bg-center"
-      :style="{ backgroundImage: `url(${tmdbApi.getBackdropUrl(movie.backdrop_path)})` }"
-    >
-      <div class="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/80 to-transparent"></div>
-      
-      <!-- Треллер кнопка -->
-      <button 
-        v-if="trailerKey"
-        @click="showTrailer = true"
-        class="absolute inset-0 m-auto w-20 h-20 bg-neon/80 rounded-full flex items-center justify-center text-gray-900 hover:scale-110 hover:bg-neon transition-all duration-300 shadow-[0_0_30px_rgba(0,212,255,0.5)] group z-10"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 ml-1" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M8 5v14l11-7z" />
-        </svg>
-      </button>
+    <div class="h-96 md:h-[500px] relative overflow-hidden">
+        <img 
+          :src="tmdbApi.getBackdropUrl(movie.backdrop_path)" 
+          class="w-full h-full object-cover opacity-30 scale-105"
+          alt=""
+        />
+        <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent"></div>
+        
+        <div class="absolute inset-0 flex items-center justify-center">
+            <button v-if="trailerKey" @click="showTrailer = true" class="group relative flex flex-col items-center gap-4">
+                <div class="w-20 h-20 bg-neon rounded-full flex items-center justify-center pl-1 shadow-[0_0_30px_rgba(255,204,0,0.6)] group-hover:scale-110 transition-transform">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-slate-950" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                    </svg>
+                </div>
+                <span class="text-white font-bold tracking-widest text-sm uppercase group-hover:text-neon transition-colors">Дивитися трейлер</span>
+            </button>
+        </div>
 
-      <button @click="$router.push('/')" class="absolute top-6 left-6 z-20 btn-outline-neon bg-gray-900/50 backdrop-blur-md pb-[-10px] pt-[-10px]">
+      <button @click="$router.push('/')" class="absolute top-6 left-6 z-20 btn-outline-neon bg-slate-900/50 backdrop-blur-md">
         &larr; На головну
       </button>
     </div>
@@ -32,7 +34,7 @@
         
         <!-- Постер -->
         <div class="w-full md:w-1/3 max-w-[300px] mx-auto md:mx-0 flex-shrink-0">
-          <div class="relative rounded-2xl overflow-hidden shadow-2xl border-4 border-gray-800">
+          <div class="relative rounded-2xl overflow-hidden shadow-2xl border-4 border-slate-800">
             <img 
               :src="tmdbApi.getImageUrl(movie.poster_path, 'w500')" 
               :alt="movie.title"
@@ -40,7 +42,7 @@
             >
             <button 
               @click="toggleFavorite"
-              class="absolute top-4 right-4 w-12 h-12 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center transition-colors border border-gray-600 hover:border-red-500 hover:bg-gray-800"
+              class="absolute top-4 right-4 w-12 h-12 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center transition-colors border border-slate-600 hover:border-red-500 hover:bg-slate-800"
             >
               <svg 
                 class="w-7 h-7 transition-colors"
@@ -55,11 +57,11 @@
 
         <!-- Інфо -->
         <div class="md:w-2/3 md:pt-16">
-          <h1 class="text-4xl md:text-5xl font-bold text-white mb-2">{{ movie.title }}</h1>
-          <p class="text-gray-400 text-lg mb-6" v-if="movie.tagline">{{ movie.tagline }}</p>
+          <h1 class="text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-neon to-yellow-500 mb-4 tracking-tight">{{ movie.title }}</h1>
+          <p class="text-slate-400 text-lg mb-6" v-if="movie.tagline">{{ movie.tagline }}</p>
 
           <div class="flex flex-wrap items-center gap-4 text-sm mb-6">
-            <span class="flex items-center gap-1 bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-700">
+            <span class="flex items-center gap-1 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
               <svg class="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
               </svg>

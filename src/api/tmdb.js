@@ -40,18 +40,31 @@ const translateToUkrainian = async (text) => {
     }
 }
 
-// Додатковий фільтр для боротьби з не-українськими перекладами
+// Додатковий фільтр для перекладу назв та описів, які залишилися англійською або російською
 const sanitizeMovieLanguage = async (movie) => {
     if (!movie) return movie;
-    const ruRegex = /[ыэъёЫЭЪЁ]/;
     
-    // Перекладаємо назву, якщо вона містить російські літери 
-    if (movie.title && ruRegex.test(movie.title)) {
+    // Регулярні вирази для детекції
+    const hasRu = /[ыэъёЫЭЪЁ]/;
+    const hasEn = /[a-zA-Z]/;
+    const hasUa = /[а-яА-ЯіїєґІЇЄҐ]/;
+
+    const needsTranslation = (text) => {
+        if (!text) return false;
+        // Якщо є російські літери — точно перекладаємо
+        if (hasRu.test(text)) return true;
+        // Якщо немає українських літер, але є англійські — перекладаємо
+        if (!hasUa.test(text) && hasEn.test(text)) return true;
+        return false;
+    };
+    
+    // Перекладаємо назву
+    if (needsTranslation(movie.title)) {
         movie.title = await translateToUkrainian(movie.title);
     }
     
     // Перекладаємо опис
-    if (movie.overview && ruRegex.test(movie.overview)) {
+    if (needsTranslation(movie.overview)) {
         movie.overview = await translateToUkrainian(movie.overview);
     }
     
@@ -151,6 +164,23 @@ export const tmdbApi = {
             { headers }
         )
         const data = await response.json()
+        
+        // Якщо опису немає українською, спробуємо отримати англійський для перекладу
+        if (!data.overview || data.overview.trim() === '') {
+            try {
+                const enResponse = await fetch(`${BASE_URL}/movie/${movieId}?api_key=${API_KEY}&language=en-US`);
+                const enData = await enResponse.json();
+                if (enData.overview) {
+                    data.overview = enData.overview;
+                }
+                if (!data.tagline && enData.tagline) {
+                    data.tagline = enData.tagline;
+                }
+            } catch (e) {
+                console.error('Помилка отримання англійських даних:', e);
+            }
+        }
+        
         return await sanitizeMovieLanguage(data)
     },
 

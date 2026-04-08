@@ -85,7 +85,6 @@
           <option value="primary_release_date.desc">Новизною (Спочатку нові)</option>
           <option value="primary_release_date.asc">Новизною (Спочатку старі)</option>
           <option value="vote_average.desc">Рейтингом</option>
-          <option value="title.asc">Назвою (А-Я)</option>
         </select>
       </div>
     </div>

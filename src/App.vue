@@ -1,14 +1,14 @@
 <template>
-  <div class="min-h-screen bg-gray-900 text-gray-100 flex flex-col font-sans selection:bg-neon/30">
-    <header class="border-b border-gray-800 bg-gray-900/80 backdrop-blur-md sticky top-0 z-40 shadow-sm">
+  <div class="min-h-screen bg-slate-950 text-gray-100 flex flex-col font-sans selection:bg-neon/30">
+    <header class="border-b border-gray-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-40 shadow-sm">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
         <router-link to="/" class="flex items-center gap-2 group">
-          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-neon to-blue-600 flex items-center justify-center shadow-[0_0_15px_rgba(0,212,255,0.4)] group-hover:shadow-[0_0_25px_rgba(0,212,255,0.6)] transition-shadow">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-neon to-yellow-600 flex items-center justify-center shadow-[0_0_15px_rgba(255,204,0,0.4)] group-hover:shadow-[0_0_25px_rgba(255,204,0,0.6)] transition-shadow">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
             </svg>
           </div>
-          <span class="text-2xl font-black tracking-wider text-white group-hover:text-neon transition-colors">KINO<span class="text-neon">.UA</span></span>
+          <span class="text-2xl font-black tracking-wider text-white group-hover:text-neon transition-colors">ALEX<span class="text-neon">FILM</span></span>
         </router-link>
 
         <nav class="hidden md:flex items-center gap-6">
@@ -38,9 +38,9 @@
       <router-view />
     </main>
 
-    <footer class="border-t border-gray-800 bg-gray-900/50 py-8 text-center text-gray-500 text-sm">
+    <footer class="border-t border-gray-800 bg-slate-950 py-8 text-center text-gray-500 text-sm">
       <div class="max-w-7xl mx-auto px-4">
-        <p class="mb-2">&copy; {{ new Date().getFullYear() }} Kino App. Всі права захищено.</p>
+        <p class="mb-2">&copy; {{ new Date().getFullYear() }} AlexFilm. Всі права захищено.</p>
         <p>Дані надані <a href="https://www.themoviedb.org/" target="_blank" class="text-neon hover:underline">TMDB API</a>.</p>
       </div>
     </footer>

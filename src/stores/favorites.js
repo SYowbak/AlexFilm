@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 
 export const useFavoritesStore = defineStore('favorites', {
   state: () => ({
-    favorites: JSON.parse(localStorage.getItem('kino-favorites')) || []
+    favorites: JSON.parse(localStorage.getItem('alex-film-favorites')) || []
   }),
   actions: {
     toggleFavorite(movie) {

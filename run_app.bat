@@ -2,10 +2,10 @@
 setlocal
 
 cd /d "%~dp0"
-title Kino App Server
+title AlexFilm Server
 
 echo ==============================================
-echo       Starting Kino App (Vue 3 + Vite)    
+echo       Starting AlexFilm (Vue 3 + Vite)    
 echo ==============================================
 echo.
 echo Checking and starting local server...

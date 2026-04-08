@@ -7,7 +7,12 @@ export default {
   theme: {
     extend: {
       colors: {
-        neon: '#00d4ff',
+        neon: '#FFCC00',
+        gold: {
+          light: '#FFD700',
+          DEFAULT: '#FFCC00',
+          dark: '#B8860B'
+        }
       },
     },
   },

@@ -24,8 +24,8 @@
         class="px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 border backdrop-blur-sm"
         :class="[
           selectedCategory === category 
-            ? 'bg-neon text-gray-900 border-neon shadow-[0_0_10px_rgba(0,212,255,0.5)] scale-105' 
-            : 'bg-gray-800/80 text-gray-300 border-gray-700 hover:border-gray-500 hover:bg-gray-700'
+            ? 'bg-amber-500 text-slate-900 border-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)] scale-105' 
+            : 'bg-slate-800/80 text-slate-300 border-slate-700 hover:border-slate-500 hover:bg-slate-700'
         ]"
       >
         {{ category }}

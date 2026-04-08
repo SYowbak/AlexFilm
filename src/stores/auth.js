@@ -2,17 +2,17 @@ import { defineStore } from 'pinia'
 
 // Ініціалізація бази користувачів з localStorage
 const getLocalUsers = () => {
-  const users = localStorage.getItem('kino-users-db')
+  const users = localStorage.getItem('alex-film-users-db')
   return users ? JSON.parse(users) : []
 }
 
 const saveLocalUsers = (users) => {
-  localStorage.setItem('kino-users-db', JSON.stringify(users))
+  localStorage.setItem('alex-film-users-db', JSON.stringify(users))
 }
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
-    user: JSON.parse(localStorage.getItem('kino-user')) || null,
+    user: JSON.parse(localStorage.getItem('alex-film-user')) || null,
     usersDb: getLocalUsers()
   }),
   actions: {
@@ -39,9 +39,9 @@ export const useAuthStore = defineStore('auth', {
       return { success: true }
     },
     
-    login(identifier, password) {
+    login(email, password) {
       const user = this.usersDb.find(
-        u => (u.username === identifier || u.email === identifier) && u.password === password
+        u => u.email === email && u.password === password
       )
 
       if (user) {
@@ -49,18 +49,18 @@ export const useAuthStore = defineStore('auth', {
         return { success: true }
       }
       
-      return { success: false, message: 'Невірний логін, email або пароль' }
+      return { success: false, message: 'Невірний Email або пароль' }
     },
 
     setSession(user) {
       const sessionData = { id: user.id, username: user.username, email: user.email }
       this.user = sessionData
-      localStorage.setItem('kino-user', JSON.stringify(sessionData))
+      localStorage.setItem('alex-film-user', JSON.stringify(sessionData))
     },
     
     logout() {
       this.user = null
-      localStorage.removeItem('kino-user')
+      localStorage.removeItem('alex-film-user')
     }
   }
 })
