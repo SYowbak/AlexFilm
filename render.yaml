@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: alexfilm
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm run build
+    startCommand: npm run start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TMDB_API_KEY
+        value: 0aae6e08fea10578e99f3da447ac2fcb
