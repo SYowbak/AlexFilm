@@ -67,14 +67,16 @@ watch(
   { immediate: true }
 )
 
-// Детекція Smart TV (Hisense VIDAA, WebOS, Tizen тощо) для оптимізації сітки
+// Детекція Smart TV (Hisense VIDAA, WebOS, Tizen, Android TV тощо) для оптимізації сітки
 onMounted(() => {
   try {
-    const isTv = typeof navigator !== 'undefined' && (
-      /tv|smarttv|vidaa|tizen|webos|netcast|viera|bravia|hisense|roku|aftb|appletv|crkey|hbbtv|box|odin/i.test(navigator.userAgent) ||
-      (typeof window !== 'undefined' && window.screen && (window.screen.width >= 1280 || window.screen.height >= 720) && (window.devicePixelRatio >= 2.0 || /hisense|vidaa|odin|tv/i.test(navigator.userAgent)))
+    const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent.toLowerCase() : ''
+    const isTvUa = /tv|smarttv|vidaa|tizen|webos|netcast|viera|bravia|hisense|roku|aftb|appletv|crkey|hbbtv|box|odin|opera\s*tv|philips|toshiba|sony|sharp|vizio|mi\s*tv|mibox|firetv/i.test(ua)
+    const isTvScreen = typeof window !== 'undefined' && window.screen && (
+      (window.screen.width >= 1280 || window.screen.height >= 720) &&
+      (ua.includes('hisense') || ua.includes('vidaa') || ua.includes('odin') || isTvUa)
     )
-    if (isTv && typeof document !== 'undefined') {
+    if ((isTvUa || isTvScreen) && typeof document !== 'undefined') {
       document.documentElement.classList.add('is-tv')
     }
   } catch (_) {}

@@ -1,5 +1,5 @@
 ﻿<template>
-  <div class="lampa-player-container" ref="containerRef" @mousemove="onActivity" @mouseleave="onMouseLeave">
+  <div class="lampa-player-container" ref="containerRef" @mousemove="onActivity" @mouseleave="onMouseLeave" @touchend="onContainerTouchEnd">
     <!-- Відео елемент для нативного HLS відтворення.
          :key — кожна медіа-сесія має свій <video>: старі нативні події
          (error/canplay/playing) приходять уже після перемикання джерела
@@ -57,6 +57,46 @@
       <span class="lampa-big-title">Дивитися «{{ title }}»</span>
       <span class="lampa-big-sub">{{ startMetaLine }}</span>
     </div>
+
+    <!-- OSD (On-Screen Display) сповіщення дій -->
+    <transition name="lampa-osd">
+      <div v-if="osdMessage" class="lampa-osd-badge">
+        <span class="lampa-osd-icon">{{ osdIcon }}</span>
+        <span class="lampa-osd-text">{{ osdMessage }}</span>
+      </div>
+    </transition>
+
+    <!-- Сенсорна подвійна перемотка (Double-tap) на мобільних -->
+    <div v-if="touchFeedback === 'left'" class="lampa-touch-ripple lampa-touch-ripple--left">
+      <div class="lampa-touch-ripple__inner">
+        <span class="lampa-touch-ripple__icon">⏪</span>
+        <span>-10с</span>
+      </div>
+    </div>
+    <div v-if="touchFeedback === 'right'" class="lampa-touch-ripple lampa-touch-ripple--right">
+      <div class="lampa-touch-ripple__inner">
+        <span>+10с</span>
+        <span class="lampa-touch-ripple__icon">⏩</span>
+      </div>
+    </div>
+
+    <!-- Банер продовження перегляду (Resume Playback) -->
+    <transition name="lampa-fade">
+      <div v-if="showResumePrompt && resumeTime > 0" class="lampa-resume-banner" @click.stop>
+        <div class="lampa-resume-content">
+          <span class="lampa-resume-icon">⏱</span>
+          <span class="lampa-resume-text">Продовжити з <strong>{{ formatTime(resumeTime) }}</strong>?</span>
+          <div class="lampa-resume-actions">
+            <button class="lampa-resume-btn lampa-resume-btn--primary" @click="resumePlayback">
+              Продовжити
+            </button>
+            <button class="lampa-resume-btn" @click="dismissResumePrompt">
+              ✕
+            </button>
+          </div>
+        </div>
+      </div>
+    </transition>
 
     <!-- ══════════════ ВАРІАНТ 1: ПОВНИЙ ІНТЕРФЕЙС LAMPA (для HLS режиму) ══════════════ -->
     <template v-if="hasStarted && isHlsMode">
@@ -248,6 +288,45 @@
                 />
               </div>
 
+              <!-- Картинка в картинці (PiP) -->
+              <div class="player-panel__box-buttons" v-if="isPipSupported">
+                <button class="lampa-btn-icon" @click="togglePip" title="Картинка в картинці">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="4" width="20" height="16" rx="2"/>
+                    <rect x="12" y="10" width="8" height="6" rx="1" fill="currentColor"/>
+                  </svg>
+                </button>
+              </div>
+
+              <!-- Підказка гарячих клавіш та пульту -->
+              <div class="player-panel__box-buttons">
+                <div class="lampa-dropdown-wrap">
+                  <button class="lampa-btn-icon" @click.stop="toggleMenu('hotkeys')" title="Керування клавішами та пультом">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="2" y="5" width="20" height="14" rx="2" />
+                      <line x1="6" y1="9" x2="6.01" y2="9"/>
+                      <line x1="10" y1="9" x2="10.01" y2="9"/>
+                      <line x1="14" y1="9" x2="14.01" y2="9"/>
+                      <line x1="18" y1="9" x2="18.01" y2="9"/>
+                      <line x1="6" y1="13" x2="6.01" y2="13"/>
+                      <line x1="18" y1="13" x2="18.01" y2="13"/>
+                      <line x1="10" y1="13" x2="14" y2="13"/>
+                    </svg>
+                  </button>
+                  <div v-if="openMenu === 'hotkeys'" class="lampa-menu lampa-menu--hotkeys" @click.stop>
+                    <div class="lampa-hotkeys-title">Керування клавіатурою / пультом</div>
+                    <div class="lampa-hotkeys-grid">
+                      <div class="lampa-hotkey-row"><kbd>Пробіл</kbd> / <kbd>OK</kbd> <span>Пауза / Пуск</span></div>
+                      <div class="lampa-hotkey-row"><kbd>◀</kbd> / <kbd>▶</kbd> <span>Перемотка 10с</span></div>
+                      <div class="lampa-hotkey-row"><kbd>▲</kbd> / <kbd>▼</kbd> <span>Гучність ±5%</span></div>
+                      <div class="lampa-hotkey-row"><kbd>F</kbd> <span>На весь екран</span></div>
+                      <div class="lampa-hotkey-row"><kbd>M</kbd> <span>Звук увімк / вимк</span></div>
+                      <div class="lampa-hotkey-row"><kbd>0–9</kbd> <span>Швидкий перехід 0–90%</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <!-- Повний екран -->
               <div class="player-panel__box-buttons">
                 <button class="lampa-btn-icon" @click="toggleFullscreen" title="На весь екран">
@@ -432,6 +511,123 @@ const qualities       = ref(['Auto'])
 // Якщо джерело доріжок не має — меню чесно це показує.
 const subtitleTracks   = ref([])
 const selectedSubtitle = ref(-1)
+
+// OSD (On-Screen Display) індикатори дій
+const osdMessage = ref('')
+const osdIcon = ref('')
+let osdTimer = null
+
+const showOsd = (icon, msg) => {
+  osdIcon.value = icon
+  osdMessage.value = msg
+  clearTimeout(osdTimer)
+  osdTimer = setTimeout(() => {
+    osdMessage.value = ''
+  }, 1100)
+}
+
+// PiP (Picture-in-Picture)
+const isPipSupported = typeof document !== 'undefined' && 'pictureInPictureEnabled' in document
+
+const togglePip = async () => {
+  try {
+    if (!videoRef.value) return
+    if (document.pictureInPictureElement) {
+      await document.exitPictureInPicture()
+      showOsd('🗖', 'Звичайний екран')
+    } else {
+      await videoRef.value.requestPictureInPicture()
+      showOsd('🗗', 'Картинка в картинці')
+    }
+  } catch (e) {
+    console.warn('PiP error:', e)
+  }
+}
+
+// Подвійний тап для перемотки на мобільних
+let lastTapTime = 0
+let lastTapX = 0
+const touchFeedback = ref('')
+let touchFeedbackTimer = null
+
+const onContainerTouchEnd = (e) => {
+  if (e.target.closest('button, input, .player-panel, .player-info, .lampa-menu, .lampa-resume-banner')) return
+  const touch = e.changedTouches?.[0]
+  if (!touch || !containerRef.value) return
+
+  const now = performance.now()
+  const rect = containerRef.value.getBoundingClientRect()
+  const x = touch.clientX - rect.left
+  const width = rect.width
+  const dt = now - lastTapTime
+  const dx = Math.abs(x - lastTapX)
+
+  if (dt < 320 && dx < 60) {
+    if (x < width * 0.38) {
+      seekBy(-10)
+      touchFeedback.value = 'left'
+    } else if (x > width * 0.62) {
+      seekBy(10)
+      touchFeedback.value = 'right'
+    } else {
+      togglePlay()
+    }
+    clearTimeout(touchFeedbackTimer)
+    touchFeedbackTimer = setTimeout(() => {
+      touchFeedback.value = ''
+    }, 650)
+    lastTapTime = 0
+  } else {
+    lastTapTime = now
+    lastTapX = x
+    onActivity()
+  }
+}
+
+// Відновлення перегляду (Resume Playback)
+const showResumePrompt = ref(false)
+const resumeTime = ref(0)
+
+const checkResume = () => {
+  if (!props.tmdbId) return
+  try {
+    const saved = localStorage.getItem(`alexfilm_resume_${props.tmdbId}`)
+    if (saved) {
+      const t = Number(saved)
+      if (t > 20) {
+        resumeTime.value = t
+        showResumePrompt.value = true
+        setTimeout(() => {
+          showResumePrompt.value = false
+        }, 12000)
+      }
+    }
+  } catch (_) {}
+}
+
+const resumePlayback = () => {
+  if (videoRef.value && resumeTime.value > 0) {
+    videoRef.value.currentTime = resumeTime.value
+    showOsd('⏱', `Продовжено з ${formatTime(resumeTime.value)}`)
+    if (videoRef.value.paused) {
+      videoRef.value.play().catch(() => {})
+    }
+  }
+  showResumePrompt.value = false
+}
+
+const dismissResumePrompt = () => {
+  showResumePrompt.value = false
+}
+
+// Захист від примусових перенаправлень сторінки сторонньою рекламою в iframe
+const beforeUnloadGuard = (e) => {
+  if (hasStarted.value && !isHlsMode.value) {
+    e.preventDefault()
+    e.returnValue = 'Залишити сторінку перегляду фільму на AlexFilm?'
+    return e.returnValue
+  }
+}
 // Підтверджена якість релізу (напр. «1080p BDRip») — її показуємо в інфо-панелі.
 // `selectedQuality` — це вибір рівня ABR у самому HLS-потоку («Auto», «720p»…),
 // тому вони не повинні змішуватися: інакше бейдж «1080p BDRip» зникає
@@ -1388,13 +1584,17 @@ const retryUaSearch = async () => {
   await checkUaStream(true)
 }
 
-const startPlayback = () => loadSource(currentSource.value)
+const startPlayback = () => {
+  loadSource(currentSource.value)
+  checkResume()
+}
 
 // ── Playback Controls ───────────────────────────────────────────
 const togglePlay = () => {
   const video = videoRef.value
   if (!video) return
   if (video.paused) {
+    showOsd('▶', 'Відтворення')
     // play() викликається СИНХРОННО в обробнику кліку — інакше браузер
     // знову відхилить запуск як autoplay.
     const result = video.play()
@@ -1409,6 +1609,7 @@ const togglePlay = () => {
         })
     }
   } else {
+    showOsd('⏸', 'Пауза')
     video.pause()
   }
 }
@@ -1416,6 +1617,7 @@ const togglePlay = () => {
 const seekBy = (seconds) => {
   if (!videoRef.value) return
   videoRef.value.currentTime = Math.max(0, Math.min(duration.value, videoRef.value.currentTime + seconds))
+  showOsd(seconds > 0 ? '⏩' : '⏪', `${seconds > 0 ? '+' : ''}${seconds}с`)
   onActivity()
 }
 
@@ -1437,9 +1639,22 @@ const onTimelineHover = (e) => {
   hoverTime.value = ratio * duration.value
 }
 
+let lastSavedSec = 0
 const onTimeUpdate = (event) => {
   if (!isCurrentMediaEvent(event)) return
-  if (videoRef.value) currentTime.value = videoRef.value.currentTime
+  if (videoRef.value) {
+    currentTime.value = videoRef.value.currentTime
+    // Збереження прогресу кожні 4-5 секунд для функції «Продовжити перегляд»
+    if (props.tmdbId && duration.value > 60) {
+      const cur = Math.floor(currentTime.value)
+      if (Math.abs(cur - lastSavedSec) >= 4 && cur < duration.value - 30) {
+        lastSavedSec = cur
+        try {
+          localStorage.setItem(`alexfilm_resume_${props.tmdbId}`, String(cur))
+        } catch (_) {}
+      }
+    }
+  }
   // Рух відтворення — теж ознака живості потоку
   touchStreamActivity()
 }
@@ -1455,7 +1670,7 @@ const onLoadedMetadata = (event) => {
   if (!isCurrentMediaEvent(event)) return
   if (!videoRef.value) return
   duration.value = videoRef.value.duration || 0
-  // Застосовуємо вибрані налаштування гучності одразу з появлю метаданих
+  // Застосовуємо вибрані налаштування гучності одразу з появою метаданих
   videoRef.value.volume = volume.value
   videoRef.value.muted = isMuted.value
 }
@@ -1464,12 +1679,18 @@ const onEnded = (event) => {
   if (!isCurrentMediaEvent(event)) return
   isPlaying.value = false
   showControls.value = true
+  if (props.tmdbId) {
+    try {
+      localStorage.removeItem(`alexfilm_resume_${props.tmdbId}`)
+    } catch (_) {}
+  }
 }
 
 const onVolumeChange = () => {
   if (!videoRef.value) return
   videoRef.value.volume = volume.value
   isMuted.value = volume.value === 0
+  showOsd(volume.value === 0 ? '🔇' : '🔊', `Гучність ${Math.round(volume.value * 100)}%`)
 }
 
 const toggleMute = () => {
@@ -1479,9 +1700,68 @@ const toggleMute = () => {
     isMuted.value = false
     if (volume.value === 0) volume.value = 0.5
     videoRef.value.volume = volume.value
+    showOsd('🔊', `Гучність ${Math.round(volume.value * 100)}%`)
   } else {
     videoRef.value.muted = true
     isMuted.value = true
+    showOsd('🔇', 'Звук вимкнено')
+  }
+  onActivity()
+}
+
+// ── Керування клавіатурою та пультом Smart TV ───────────────────
+const handlePlayerKeyDown = (e) => {
+  if (!hasStarted.value) return
+  if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target?.tagName)) return
+
+  let handled = false
+  const key = e.key
+
+  if (key === ' ' || key === 'k' || key === 'K' || key === 'MediaPlayPause') {
+    togglePlay()
+    handled = true
+  } else if (key === 'ArrowLeft' || key === 'j' || key === 'J' || key === 'MediaRewind') {
+    seekBy(-10)
+    handled = true
+  } else if (key === 'ArrowRight' || key === 'l' || key === 'L' || key === 'MediaFastForward') {
+    seekBy(10)
+    handled = true
+  } else if (key === 'ArrowUp') {
+    volume.value = Math.min(1, Math.round((volume.value + 0.05) * 100) / 100)
+    if (videoRef.value) {
+      videoRef.value.volume = volume.value
+      videoRef.value.muted = false
+      isMuted.value = false
+    }
+    showOsd('🔊', `Гучність ${Math.round(volume.value * 100)}%`)
+    onActivity()
+    handled = true
+  } else if (key === 'ArrowDown') {
+    volume.value = Math.max(0, Math.round((volume.value - 0.05) * 100) / 100)
+    if (videoRef.value) {
+      videoRef.value.volume = volume.value
+    }
+    showOsd(volume.value === 0 ? '🔇' : '🔉', `Гучність ${Math.round(volume.value * 100)}%`)
+    onActivity()
+    handled = true
+  } else if (key === 'f' || key === 'F') {
+    toggleFullscreen()
+    handled = true
+  } else if (key === 'm' || key === 'M') {
+    toggleMute()
+    handled = true
+  } else if (/^[0-9]$/.test(key) && duration.value > 0 && isHlsMode.value) {
+    const fraction = Number(key) * 0.1
+    if (videoRef.value) {
+      videoRef.value.currentTime = fraction * duration.value
+      showOsd('⏱', `${Number(key) * 10}%`)
+      onActivity()
+      handled = true
+    }
+  }
+
+  if (handled) {
+    e.preventDefault()
   }
 }
 
@@ -1730,6 +2010,13 @@ onMounted(() => {
   }
   document.addEventListener('fullscreenchange', fullscreenHandler)
   document.addEventListener('webkitfullscreenchange', fullscreenHandler)
+
+  // Гарячі клавіші та пульт телевізора
+  window.addEventListener('keydown', handlePlayerKeyDown)
+  // Захист від спливаючих вікон та небажаних перенаправлень
+  window.addEventListener('beforeunload', beforeUnloadGuard)
+
+  checkResume()
 })
 
 onBeforeUnmount(() => {
@@ -1741,6 +2028,8 @@ onBeforeUnmount(() => {
   }
   uaPromise = null
   clearTimeout(hideTimer)
+  clearTimeout(osdTimer)
+  clearTimeout(touchFeedbackTimer)
   clearStreamWatchdog()
   clearRetryTimer()
   clearFallbackTimer()
@@ -1750,6 +2039,8 @@ onBeforeUnmount(() => {
     document.removeEventListener('fullscreenchange', fullscreenHandler)
     document.removeEventListener('webkitfullscreenchange', fullscreenHandler)
   }
+  window.removeEventListener('keydown', handlePlayerKeyDown)
+  window.removeEventListener('beforeunload', beforeUnloadGuard)
   destroyHls()
   removeIframe()
 })
@@ -2486,5 +2777,189 @@ onBeforeUnmount(() => {
   .lampa-btn span { display: none; }
   .player-panel__playpause { width: 44px; height: 44px; }
   .player-panel__playpause svg { width: 20px; height: 20px; }
+}
+
+/* ── OSD Badge (HUD) ─────────────────────────────────────────── */
+.lampa-osd-badge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(15, 23, 42, 0.88);
+  border: 1px solid rgba(255, 204, 0, 0.5);
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.8), 0 0 15px rgba(255, 204, 0, 0.25);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 0.9rem 1.6rem;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  z-index: 60;
+  pointer-events: none;
+  color: #fff;
+}
+.lampa-osd-icon {
+  font-size: 1.4rem;
+}
+.lampa-osd-text {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.lampa-osd-enter-active,
+.lampa-osd-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.lampa-osd-enter-from,
+.lampa-osd-leave-to {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.85);
+}
+
+/* ── Mobile Double-Tap Ripple ────────────────────────────────── */
+.lampa-touch-ripple {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 38%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 55;
+  pointer-events: none;
+}
+.lampa-touch-ripple--left {
+  left: 0;
+  background: radial-gradient(circle at 30% 50%, rgba(255, 204, 0, 0.2) 0%, transparent 70%);
+}
+.lampa-touch-ripple--right {
+  right: 0;
+  background: radial-gradient(circle at 70% 50%, rgba(255, 204, 0, 0.2) 0%, transparent 70%);
+}
+.lampa-touch-ripple__inner {
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(255, 204, 0, 0.4);
+  padding: 0.6rem 1.1rem;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #ffcc00;
+  font-weight: 800;
+  font-size: 0.9rem;
+  animation: pulseRipple 0.5s ease-out;
+}
+@keyframes pulseRipple {
+  0% { transform: scale(0.7); opacity: 0; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.9; }
+}
+
+/* ── Resume Playback Banner ──────────────────────────────────── */
+.lampa-resume-banner {
+  position: absolute;
+  bottom: 4.5rem;
+  left: 1.5rem;
+  right: 1.5rem;
+  display: flex;
+  justify-content: center;
+  z-index: 50;
+  pointer-events: auto;
+}
+.lampa-resume-content {
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid #ffcc00;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), 0 0 15px rgba(255, 204, 0, 0.3);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 0.65rem 1.1rem;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  color: #f1f5f9;
+  font-size: 0.85rem;
+}
+.lampa-resume-content strong {
+  color: #ffcc00;
+}
+.lampa-resume-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.lampa-resume-btn {
+  border: none;
+  border-radius: 9999px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+  transition: all 0.15s ease;
+}
+.lampa-resume-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+.lampa-resume-btn--primary {
+  background: #ffcc00;
+  color: #0f172a;
+}
+.lampa-resume-btn--primary:hover {
+  background: #ffd633;
+}
+
+/* ── Hotkeys Help Menu ───────────────────────────────────────── */
+.lampa-menu--hotkeys {
+  width: 280px;
+  padding: 0.85rem;
+  background: rgba(15, 23, 42, 0.96);
+  border-color: rgba(255, 204, 0, 0.3);
+}
+.lampa-hotkeys-title {
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #ffcc00;
+  margin-bottom: 0.65rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.lampa-hotkeys-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.lampa-hotkey-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #cbd5e1;
+}
+.lampa-hotkey-row kbd {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+  font-family: inherit;
+  font-weight: 700;
+  color: #ffcc00;
+  font-size: 0.7rem;
+}
+
+/* ── Fade Transition ─────────────────────────────────────────── */
+.lampa-fade-enter-active,
+.lampa-fade-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.lampa-fade-enter-from,
+.lampa-fade-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
 }
 </style>

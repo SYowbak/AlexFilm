@@ -29,6 +29,13 @@
 
         <button
           class="btn-outline-neon explore-action-btn"
+          @click="togglePerformanceMode"
+          :title="isLite ? 'Увімкнути режим максимальної графіки (HQ)' : 'Увімкнути швидкий режим для слабких пристроїв / ТБ'"
+        >
+          <span>{{ isLite ? '⚡ Швидкий' : '✨ Ультра' }}</span>
+        </button>
+        <button
+          class="btn-outline-neon explore-action-btn"
           @click="refreshMovies"
           :disabled="loading"
           title="Завантажити іншу добірку фільмів"
@@ -57,6 +64,17 @@
       @wheel.prevent="onWheel"
     >
       <canvas ref="canvasEl"></canvas>
+
+      <!-- Навігаційний D-Pad для сенсорних екранів та пультів ТВ -->
+      <div class="stage-nav-controls" @click.stop @mousedown.stop @touchstart.stop>
+        <button class="stage-nav-btn stage-nav-btn--up" @click="panBy(0, -140)" title="Вгору">▲</button>
+        <div class="stage-nav-row">
+          <button class="stage-nav-btn" @click="panBy(-160, 0)" title="Вліво">◀</button>
+          <button class="stage-nav-btn stage-nav-btn--center" @click="resetCamera" title="До центру">🎯</button>
+          <button class="stage-nav-btn" @click="panBy(160, 0)" title="Вправо">▶</button>
+        </div>
+        <button class="stage-nav-btn stage-nav-btn--down" @click="panBy(0, 140)" title="Вниз">▼</button>
+      </div>
 
       <!-- Loading State -->
       <div v-if="loading" class="stage-loader">
@@ -275,12 +293,56 @@ const MAX_MAGNIFICATION = 5.0 // Smooth scaling
 const GRID_COLS = 26
 const GRID_ROWS = 18
 
-// Виявлення Smart TV (Hisense VIDAA, WebOS, Tizen тощо)
+// Виявлення Smart TV та слабких пристроїв
 const isTvDevice = typeof navigator !== 'undefined' && (
-  /tv|smarttv|vidaa|tizen|webos|netcast|viera|bravia|hisense|roku|aftb|appletv|crkey|hbbtv|box|odin/i.test(navigator.userAgent) ||
+  /tv|smarttv|vidaa|tizen|webos|netcast|viera|bravia|hisense|roku|aftb|appletv|crkey|hbbtv|box|odin|opera\s*tv/i.test(navigator.userAgent) ||
   (typeof document !== 'undefined' && document.documentElement.classList.contains('is-tv')) ||
   (typeof window !== 'undefined' && window.screen && (window.screen.width >= 1280 || window.screen.height >= 720) && (window.devicePixelRatio >= 2.0 || /hisense|vidaa|odin|tv/i.test(navigator.userAgent)))
 )
+
+const isWeakDevice = typeof navigator !== 'undefined' && (
+  isTvDevice ||
+  (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) ||
+  (navigator.deviceMemory && navigator.deviceMemory <= 4)
+)
+
+// Режим продуктивності: 'lite' (швидкий, для ТБ і слабких пристроїв) або 'hq' (ультра)
+const performanceMode = ref(
+  (typeof localStorage !== 'undefined' && localStorage.getItem('alexfilm_explore_perf')) ||
+  (isWeakDevice ? 'lite' : 'hq')
+)
+const isLite = computed(() => performanceMode.value === 'lite')
+
+const togglePerformanceMode = () => {
+  performanceMode.value = isLite.value ? 'hq' : 'lite'
+  try {
+    localStorage.setItem('alexfilm_explore_perf', performanceMode.value)
+  } catch (_) {}
+  handleResize()
+}
+
+// Навігація кнопками D-Pad / клавіатурою / пультом ТБ
+const panBy = (dx, dy) => {
+  targetCamX += dx
+  targetCamY += dy
+  if (stageEl.value) {
+    const rect = stageEl.value.getBoundingClientRect()
+    mouseX = rect.width / 2
+    mouseY = rect.height / 2
+    isMouseInside = true
+  }
+}
+
+const resetCamera = () => {
+  targetCamX = 0
+  targetCamY = 0
+  if (stageEl.value) {
+    const rect = stageEl.value.getBoundingClientRect()
+    mouseX = rect.width / 2
+    mouseY = rect.height / 2
+    isMouseInside = true
+  }
+}
 
 // Camera in world pixels
 let camX = 0
@@ -485,9 +547,9 @@ function render(timestamp = 0) {
     return
   }
 
-  // На телевізорах обмежуємо до ~30 FPS, щоб слабкий ТВ-процесор не навантажувався
-  // на 100% і не викликав зависання системи. На ноутбуці працює повна швидкість 60 FPS.
-  if (isTvDevice && timestamp && timestamp - lastRenderTime < 33) {
+  // У швидкому режимі (Lite / TV) обмежуємо до ~30 FPS, щоб слабкий процесор не перевантажувався.
+  // На потужних ноутбуках/ПК у режимі Ультра працює 60 FPS.
+  if (isLite.value && timestamp && timestamp - lastRenderTime < 33) {
     animId = requestAnimationFrame(render)
     return
   }
@@ -687,8 +749,8 @@ function render(timestamp = 0) {
 
     ctx.save()
 
-    // Shadow (на телевізорах вимикаємо складне блюрення тіней, зберігаючи 30/60 FPS без лагів процесора)
-    if (!isTvDevice && (card.isSelected || isHovered || card.factor > 0.35)) {
+    // Shadow (у швидкому режимі вимикаємо складне блюрення тіней, зберігаючи максимальну швидкість)
+    if (!isLite.value && (card.isSelected || isHovered || card.factor > 0.35)) {
       ctx.shadowColor = card.isSelected
         ? 'rgba(255, 204, 0, 0.95)'
         : isHovered
@@ -722,8 +784,8 @@ function render(timestamp = 0) {
         drawH
       )
 
-      // Soft 3D curvature shading (на телевізорах вимикаємо для високої швидкодії)
-      if (!isTvDevice && card.brightness < 0.95 && !card.isSelected && !isHovered) {
+      // Soft 3D curvature shading (у швидкому режимі вимикаємо)
+      if (!isLite.value && card.brightness < 0.95 && !card.isSelected && !isHovered) {
         ctx.fillStyle = `rgba(0, 0, 0, ${0.28 * (1.0 - card.brightness)})`
         ctx.fillRect(
           drawX - drawW / 2,
@@ -946,9 +1008,9 @@ function pickRandomMovie() {
 function handleResize() {
   if (!stageEl.value || !canvasEl.value) return
   const rect = stageEl.value.getBoundingClientRect()
-  // На ноутбуках зберігаємо повну чіткість (до 2.0).
-  // На 4K Smart TV обмежуємо DPR до 1.0, щоб графічний буфер не переповнював пам'ять телевізора.
-  const dpr = isTvDevice ? 1.0 : Math.min(window.devicePixelRatio || 1, 2)
+  // На ультра-режимі зберігаємо повну чіткість (до 2.0).
+  // У швидкому режимі (Lite / TV) обмежуємо DPR до 1.0, щоб графічний буфер не переповнював пам'ять.
+  const dpr = isLite.value ? 1.0 : Math.min(window.devicePixelRatio || 1, 2)
 
   canvasEl.value.width = rect.width * dpr
   canvasEl.value.height = rect.height * dpr
@@ -1006,10 +1068,10 @@ async function loadMovies(offset = 1, genreId = selectedGenreId.value) {
     // Turn off full loading spinner immediately so the user can interact right away
     loading.value = false
 
-    // 2. Second wave: на телевізорах зупиняємося на перших 60 фільмах, щоб
-    // не забивати обмежену пам'ять (RAM) телевізора завантаженням 400 картинок.
-    // На ноутбуку/ПК продовжуємо завантажувати всі 20 сторінок для повної галактики.
-    if (!isTvDevice) {
+    // 2. Second wave: у швидкому режимі (Lite / TV) зупиняємося на перших 60 фільмах,
+    // щоб не забивати оперативну пам'ять завантаженням 400 картинок.
+    // В ультра-режимі на комп'ютері продовжуємо завантажувати всі 20 сторінок для повної галактики.
+    if (!isLite.value) {
       const remainingPages = []
       for (let i = 3; i < 20; i++) {
         remainingPages.push(offset + i)
@@ -1069,9 +1131,41 @@ async function loadGenres() {
   } catch (e) {}
 }
 
+function onKeyDown(e) {
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) {
+    return
+  }
+  if (e.key === 'ArrowUp') {
+    panBy(0, -120)
+    e.preventDefault()
+  } else if (e.key === 'ArrowDown') {
+    panBy(0, 120)
+    e.preventDefault()
+  } else if (e.key === 'ArrowLeft') {
+    panBy(-140, 0)
+    e.preventDefault()
+  } else if (e.key === 'ArrowRight') {
+    panBy(140, 0)
+    e.preventDefault()
+  } else if (e.key === 'Home') {
+    resetCamera()
+    e.preventDefault()
+  } else if (e.key === 'Enter' && hoveredCell.value) {
+    selectMovieCell(hoveredCell.value)
+    e.preventDefault()
+  } else if (e.key === 'Escape' && selectedMovie.value) {
+    closeDetails()
+    e.preventDefault()
+  }
+}
+
 onMounted(() => {
   loadMovies()
   loadGenres()
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('keydown', onKeyDown)
+  }
 
   nextTick(() => {
     handleResize()
@@ -1086,6 +1180,9 @@ onMounted(() => {
 onBeforeUnmount(() => {
   cancelAnimationFrame(animId)
   if (resizeObserver) resizeObserver.disconnect()
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('keydown', onKeyDown)
+  }
 })
 </script>
 
@@ -1631,6 +1728,68 @@ canvas {
     width: 100%;
     max-width: 100%;
     padding: 1.25rem;
+  }
+}
+
+/* ── D-Pad Навігація для Smart TV та Сенсорних екранів ───────── */
+.stage-nav-controls {
+  position: absolute;
+  bottom: 1.25rem;
+  right: 1.25rem;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(255, 204, 0, 0.3);
+  border-radius: 1rem;
+  padding: 0.45rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7), 0 0 15px rgba(255, 204, 0, 0.15);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  user-select: none;
+}
+.stage-nav-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.stage-nav-btn {
+  width: 2.3rem;
+  height: 2.3rem;
+  border-radius: 0.5rem;
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #f1f5f9;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.stage-nav-btn:hover,
+.stage-nav-btn:focus {
+  background: #ffcc00;
+  color: #0f172a;
+  border-color: #ffcc00;
+  transform: scale(1.08);
+}
+.stage-nav-btn--center {
+  font-size: 0.85rem;
+}
+@media (max-width: 640px) {
+  .stage-nav-controls {
+    bottom: 0.65rem;
+    right: 0.65rem;
+    padding: 0.3rem;
+    gap: 0.25rem;
+  }
+  .stage-nav-btn {
+    width: 2rem;
+    height: 2rem;
+    font-size: 0.8rem;
   }
 }
 </style>

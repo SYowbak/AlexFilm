@@ -26,22 +26,27 @@
 }
 
 /* Адаптивна сітка фільмів для всіх екранів (включаючи Hisense Smart TV):
-   - Вузькі телефони (< 390px): 2 колонки
-   - Телефони в портреті / проміжні екрани (390px - 639px): 3 колонки
-   - Планшети (640px - 1023px): 3-4 колонки
-   - Ноутбуки / Десктоп (>= 1024px): рівно 5 колонок
-   - Будь-який Smart TV / альбомний режим: 4-5 колонок
+   - Мобільні телефони в портреті (< 640px): 2 колонки
+   - Планшети в портреті (640px - 767px): 3 колонки
+   - Планшети (768px - 1023px): 4 колонки
+   - Ноутбуки / Десктоп (>= 1024px): рівно 5 колонок (20 фільмів = 4 повні ряди по 5)
+   - Будь-який Smart TV / альбомний режим (landscape >= 900px): рівно 5 колонок
 */
-@media (min-width: 390px) and (max-width: 639px) {
+@media (orientation: landscape) and (min-width: 540px) {
   .movie-grid-container {
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
   }
 }
 
-/* Альбомна орієнтація (наприклад, ТБ з віртуальним мобільним в'юпортом) */
-@media (orientation: landscape) and (max-height: 600px) {
+@media (orientation: landscape) and (min-width: 900px) {
   .movie-grid-container {
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .movie-grid-container {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
   }
 }
 
@@ -50,7 +55,7 @@ html.is-tv .movie-grid-container {
   grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 640px) {
   html.is-tv .movie-grid-container {
     grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
   }
