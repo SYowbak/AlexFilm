@@ -277,9 +277,9 @@ const GRID_ROWS = 18
 
 // Виявлення Smart TV (Hisense VIDAA, WebOS, Tizen тощо)
 const isTvDevice = typeof navigator !== 'undefined' && (
-  /tv|smarttv|vidaa|tizen|webos|netcast|viera|bravia|hisense|roku|aftb|appletv|crkey|hbbtv|box/i.test(navigator.userAgent) ||
+  /tv|smarttv|vidaa|tizen|webos|netcast|viera|bravia|hisense|roku|aftb|appletv|crkey|hbbtv|box|odin/i.test(navigator.userAgent) ||
   (typeof document !== 'undefined' && document.documentElement.classList.contains('is-tv')) ||
-  (typeof window !== 'undefined' && window.screen && (window.screen.width >= 1920 || window.screen.height >= 1080) && (window.devicePixelRatio >= 2.5 || /hisense|vidaa/i.test(navigator.userAgent)))
+  (typeof window !== 'undefined' && window.screen && (window.screen.width >= 1280 || window.screen.height >= 720) && (window.devicePixelRatio >= 2.0 || /hisense|vidaa|odin|tv/i.test(navigator.userAgent)))
 )
 
 // Camera in world pixels

@@ -25,16 +25,23 @@
   overflow: hidden;
 }
 
-/* Адаптивна сітка фільмів:
-   - Смартфони (< 440px): 2 колонки
-   - Проміжні екрани / широкі телефони (440px - 639px): 3 колонки
-   - Планшети (640px - 1023px): 3-4 колонки (через Tailwind sm/md)
-   - Ноутбуки / Десктоп (>= 1024px): рівно 5 колонок (через Tailwind lg:grid-cols-5)
-   - Smart TV (Hisense VIDAA, WebOS тощо): 4-5 колонок
+/* Адаптивна сітка фільмів для всіх екранів (включаючи Hisense Smart TV):
+   - Вузькі телефони (< 390px): 2 колонки
+   - Телефони в портреті / проміжні екрани (390px - 639px): 3 колонки
+   - Планшети (640px - 1023px): 3-4 колонки
+   - Ноутбуки / Десктоп (>= 1024px): рівно 5 колонок
+   - Будь-який Smart TV / альбомний режим: 4-5 колонок
 */
-@media (min-width: 440px) and (max-width: 639px) {
+@media (min-width: 390px) and (max-width: 639px) {
   .movie-grid-container {
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Альбомна орієнтація (наприклад, ТБ з віртуальним мобільним в'юпортом) */
+@media (orientation: landscape) and (max-height: 600px) {
+  .movie-grid-container {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
   }
 }
 
@@ -43,7 +50,7 @@ html.is-tv .movie-grid-container {
   grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
 }
 
-@media (min-width: 900px) {
+@media (min-width: 768px) {
   html.is-tv .movie-grid-container {
     grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
   }
