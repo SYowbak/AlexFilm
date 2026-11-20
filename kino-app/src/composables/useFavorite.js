@@ -34,7 +34,7 @@ export function useFavorite() {
         if (!result.ok) return
 
         toastStore.show({
-            message: result.added ? 'Додано до улюблених ❤️' : 'Видалено з улюблених',
+            message: result.added ? 'Додано до улюблених' : 'Видалено з улюблених',
             timeout: 2500
         })
     }

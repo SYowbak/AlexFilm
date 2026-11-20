@@ -67,7 +67,6 @@ watch(
   { immediate: true }
 )
 
-// Детекція Smart TV (Hisense VIDAA, WebOS, Tizen, Android TV тощо) для оптимізації сітки
 onMounted(() => {
   try {
     const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent.toLowerCase() : ''

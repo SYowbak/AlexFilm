@@ -19,7 +19,7 @@
             :value="selectedGenreId === null ? '' : selectedGenreId"
             @change="onGenreSelectChange"
           >
-            <option value="">🎬 Усі жанри</option>
+            <option value="">Усі жанри</option>
             <option v-for="g in genresList" :key="g.id" :value="g.id">
               {{ g.name }}
             </option>
@@ -29,22 +29,14 @@
 
         <button
           class="btn-outline-neon explore-action-btn"
-          @click="togglePerformanceMode"
-          :title="isLite ? 'Увімкнути режим максимальної графіки (HQ)' : 'Увімкнути швидкий режим для слабких пристроїв / ТБ'"
-        >
-          <span>{{ isLite ? '⚡ Швидкий' : '✨ Ультра' }}</span>
-        </button>
-        <button
-          class="btn-outline-neon explore-action-btn"
           @click="refreshMovies"
           :disabled="loading"
           title="Завантажити іншу добірку фільмів"
         >
-          <span :class="{ 'animate-spin': loading }">🔄</span>
           <span>Оновити<span class="hidden sm:inline"> фільми</span></span>
         </button>
         <button class="btn-neon explore-action-btn" @click="pickRandomMovie">
-          🎲 <span>Випадковий<span class="hidden sm:inline"> фільм</span></span>
+          <span>Випадковий<span class="hidden sm:inline"> фільм</span></span>
         </button>
       </div>
     </div>
@@ -64,17 +56,6 @@
       @wheel.prevent="onWheel"
     >
       <canvas ref="canvasEl"></canvas>
-
-      <!-- Навігаційний D-Pad для сенсорних екранів та пультів ТВ -->
-      <div class="stage-nav-controls" @click.stop @mousedown.stop @touchstart.stop>
-        <button class="stage-nav-btn stage-nav-btn--up" @click="panBy(0, -140)" title="Вгору">▲</button>
-        <div class="stage-nav-row">
-          <button class="stage-nav-btn" @click="panBy(-160, 0)" title="Вліво">◀</button>
-          <button class="stage-nav-btn stage-nav-btn--center" @click="resetCamera" title="До центру">🎯</button>
-          <button class="stage-nav-btn" @click="panBy(160, 0)" title="Вправо">▶</button>
-        </div>
-        <button class="stage-nav-btn stage-nav-btn--down" @click="panBy(0, 140)" title="Вниз">▼</button>
-      </div>
 
       <!-- Loading State -->
       <div v-if="loading" class="stage-loader">
@@ -184,7 +165,7 @@
                   <span class="score-sub">{{ selectedMovie.vote_count }} голосів</span>
                 </div>
                 <div v-if="selectedMovieDetails?.runtime" class="score-runtime">
-                  🕐 {{ formatRuntime(selectedMovieDetails.runtime) }}
+                  {{ formatRuntime(selectedMovieDetails.runtime) }}
                 </div>
               </div>
 
@@ -229,7 +210,7 @@
                   @click="toggleFavorite(selectedMovieDetails || selectedMovie)"
                   :title="favoriteTitle(isFavorite)"
                 >
-                  {{ isFavorite ? '❤️' : '🤍' }}
+                  {{ isFavorite ? 'Улюблене' : 'В улюблене' }}
                 </button>
               </div>
             </div>
@@ -239,7 +220,7 @@
 
       <!-- Bottom Hint -->
       <div class="stage-hint-bar">
-        <span>🔍 Водіть мишею по мозаїці · Клікніть постер для перегляду</span>
+        <span>Водіть мишею по мозаїці · Клікніть постер для перегляду</span>
         <button
           class="stage-stat-btn"
           @click="refreshMovies"
@@ -249,7 +230,7 @@
           @touchend.stop
           title="Клікніть, щоб оновити фільми"
         >
-          🔄 {{ movies.length }} унікальних фільмів (оновити)
+          {{ movies.length }} фільмів · оновити
         </button>
       </div>
     </div>
@@ -293,35 +274,28 @@ const MAX_MAGNIFICATION = 5.0 // Smooth scaling
 const GRID_COLS = 26
 const GRID_ROWS = 18
 
-// Виявлення Smart TV та слабких пристроїв
-const isTvDevice = typeof navigator !== 'undefined' && (
-  /tv|smarttv|vidaa|tizen|webos|netcast|viera|bravia|hisense|roku|aftb|appletv|crkey|hbbtv|box|odin|opera\s*tv/i.test(navigator.userAgent) ||
-  (typeof document !== 'undefined' && document.documentElement.classList.contains('is-tv')) ||
-  (typeof window !== 'undefined' && window.screen && (window.screen.width >= 1280 || window.screen.height >= 720) && (window.devicePixelRatio >= 2.0 || /hisense|vidaa|odin|tv/i.test(navigator.userAgent)))
-)
-
-const isWeakDevice = typeof navigator !== 'undefined' && (
-  isTvDevice ||
-  (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) ||
-  (navigator.deviceMemory && navigator.deviceMemory <= 4)
-)
-
-// Режим продуктивності: 'lite' (швидкий, для ТБ і слабких пристроїв) або 'hq' (ультра)
-const performanceMode = ref(
-  (typeof localStorage !== 'undefined' && localStorage.getItem('alexfilm_explore_perf')) ||
-  (isWeakDevice ? 'lite' : 'hq')
-)
-const isLite = computed(() => performanceMode.value === 'lite')
-
-const togglePerformanceMode = () => {
-  performanceMode.value = isLite.value ? 'hq' : 'lite'
-  try {
-    localStorage.setItem('alexfilm_explore_perf', performanceMode.value)
-  } catch (_) {}
-  handleResize()
+const LEVELS = {
+  economy: { name: 'Економ', movies: 60, fps: 24, dpr: 1, effects: false, cache: 60 },
+  normal: { name: 'Норма', movies: 300, fps: 30, dpr: 1, effects: false, cache: 300 },
+  max: { name: 'Макс', movies: 1000, fps: 60, dpr: 2, effects: true, cache: 600 }
 }
 
-// Навігація кнопками D-Pad / клавіатурою / пультом ТБ
+const ua = typeof navigator !== 'undefined' ? navigator.userAgent.toLowerCase() : ''
+const isTvDevice = /tv|smarttv|vidaa|tizen|webos|netcast|viera|bravia|hisense|roku|aftb|appletv|crkey|hbbtv|box|odin|opera\s*tv/i.test(ua) ||
+  (typeof document !== 'undefined' && document.documentElement.classList.contains('is-tv'))
+const cores = (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) || 4
+const memory = (typeof navigator !== 'undefined' && navigator.deviceMemory) || 4
+
+function detectLevel() {
+  if (cores <= 2 || memory <= 2 || (isTvDevice && memory <= 4)) return 'economy'
+  if (!isTvDevice && cores >= 8 && memory >= 8) return 'max'
+  return 'normal'
+}
+
+const storedLevel = typeof localStorage !== 'undefined' ? localStorage.getItem('alexfilm_explore_level') : null
+const performanceLevel = ref(LEVELS[storedLevel] ? storedLevel : detectLevel())
+const level = computed(() => LEVELS[performanceLevel.value])
+
 const panBy = (dx, dy) => {
   targetCamX += dx
   targetCamY += dy
@@ -428,16 +402,25 @@ const closeDetails = () => {
   selectedCell.value = null
 }
 
-// Preload image without CORS restrictions
-function preloadImage(movie) {
-  if (!movie || !movie.poster_path) return
-  if (imageMap.has(movie.id)) return
+const pendingImages = new Set()
+const imageOrder = []
 
+function ensureImage(movie) {
+  if (!movie || !movie.poster_path) return
+  if (imageMap.has(movie.id) || pendingImages.has(movie.id)) return
+
+  pendingImages.add(movie.id)
   const img = new Image()
-  img.src = tmdbApi.getImageUrl(movie.poster_path, 'w185')
   img.onload = () => {
+    pendingImages.delete(movie.id)
     imageMap.set(movie.id, img)
+    imageOrder.push(movie.id)
+    while (imageOrder.length > level.value.cache) {
+      imageMap.delete(imageOrder.shift())
+    }
   }
+  img.onerror = () => pendingImages.delete(movie.id)
+  img.src = tmdbApi.getImageUrl(movie.poster_path, 'w185')
 }
 
 // Deterministic movie for grid cell (c, r) mapped outward in expanding spiral/rings from center (0, 0)
@@ -547,9 +530,8 @@ function render(timestamp = 0) {
     return
   }
 
-  // У швидкому режимі (Lite / TV) обмежуємо до ~30 FPS, щоб слабкий процесор не перевантажувався.
-  // На потужних ноутбуках/ПК у режимі Ультра працює 60 FPS.
-  if (isLite.value && timestamp && timestamp - lastRenderTime < 33) {
+  const frameInterval = 1000 / level.value.fps
+  if (timestamp && timestamp - lastRenderTime < frameInterval) {
     animId = requestAnimationFrame(render)
     return
   }
@@ -729,6 +711,7 @@ function render(timestamp = 0) {
   // Draw cards
   for (let i = 0; i < renderedCards.length; i++) {
     const card = renderedCards[i]
+    ensureImage(card.movie)
     const isHovered =
       hoveredCell.value?.c === card.c &&
       hoveredCell.value?.r === card.r
@@ -749,8 +732,7 @@ function render(timestamp = 0) {
 
     ctx.save()
 
-    // Shadow (у швидкому режимі вимикаємо складне блюрення тіней, зберігаючи максимальну швидкість)
-    if (!isLite.value && (card.isSelected || isHovered || card.factor > 0.35)) {
+    if (level.value.effects && (card.isSelected || isHovered || card.factor > 0.35)) {
       ctx.shadowColor = card.isSelected
         ? 'rgba(255, 204, 0, 0.95)'
         : isHovered
@@ -784,8 +766,7 @@ function render(timestamp = 0) {
         drawH
       )
 
-      // Soft 3D curvature shading (у швидкому режимі вимикаємо)
-      if (!isLite.value && card.brightness < 0.95 && !card.isSelected && !isHovered) {
+      if (level.value.effects && card.brightness < 0.95 && !card.isSelected && !isHovered) {
         ctx.fillStyle = `rgba(0, 0, 0, ${0.28 * (1.0 - card.brightness)})`
         ctx.fillRect(
           drawX - drawW / 2,
@@ -1008,9 +989,7 @@ function pickRandomMovie() {
 function handleResize() {
   if (!stageEl.value || !canvasEl.value) return
   const rect = stageEl.value.getBoundingClientRect()
-  // На ультра-режимі зберігаємо повну чіткість (до 2.0).
-  // У швидкому режимі (Lite / TV) обмежуємо DPR до 1.0, щоб графічний буфер не переповнював пам'ять.
-  const dpr = isLite.value ? 1.0 : Math.min(window.devicePixelRatio || 1, 2)
+  const dpr = Math.min(window.devicePixelRatio || 1, level.value.dpr)
 
   canvasEl.value.width = rect.width * dpr
   canvasEl.value.height = rect.height * dpr
@@ -1045,59 +1024,59 @@ async function fetchMoviesPage(p, genreId) {
   }
 }
 
+let loadToken = 0
+
 async function loadMovies(offset = 1, genreId = selectedGenreId.value) {
+  const token = ++loadToken
+  const target = level.value.movies
   loading.value = true
   error.value = ''
+  movies.value = []
+  imageMap.clear()
+  imageOrder.length = 0
+  pendingImages.clear()
+
+  const seen = new Set()
+  const unique = []
+  let page = offset
+  let emptyPages = 0
+
   try {
-    // 1. First wave: fetch the first 3 pages immediately to populate the central sphere!
-    const initialPages = [offset, offset + 1, offset + 2]
-    const initialResults = await Promise.all(initialPages.map(p => fetchMoviesPage(p, genreId)))
-    const initialFlat = initialResults.flat()
+    while (unique.length < target && emptyPages < 2) {
+      const batch = []
+      for (let i = 0; i < 4; i++) batch.push(page++)
+      const results = await Promise.all(batch.map(p => fetchMoviesPage(p, genreId)))
+      if (token !== loadToken) return
 
-    const seen = new Set()
-    const unique = []
-    for (const m of initialFlat) {
-      if (!seen.has(m.id)) {
-        seen.add(m.id)
-        unique.push(m)
-        preloadImage(m)
-      }
-    }
-
-    movies.value = [...unique]
-    // Turn off full loading spinner immediately so the user can interact right away
-    loading.value = false
-
-    // 2. Second wave: у швидкому режимі (Lite / TV) зупиняємося на перших 60 фільмах,
-    // щоб не забивати оперативну пам'ять завантаженням 400 картинок.
-    // В ультра-режимі на комп'ютері продовжуємо завантажувати всі 20 сторінок для повної галактики.
-    if (!isLite.value) {
-      const remainingPages = []
-      for (let i = 3; i < 20; i++) {
-        remainingPages.push(offset + i)
-      }
-
-      // Load in chunks of 4 pages with small delay
-      const chunkSize = 4
-      for (let i = 0; i < remainingPages.length; i += chunkSize) {
-        const chunk = remainingPages.slice(i, i + chunkSize)
-        const chunkResults = await Promise.all(chunk.map(p => fetchMoviesPage(p, genreId)))
-        const chunkFlat = chunkResults.flat()
-
-        for (const m of chunkFlat) {
+      let added = 0
+      for (const list of results) {
+        if (!list.length) emptyPages++
+        for (const m of list) {
           if (!seen.has(m.id)) {
             seen.add(m.id)
             unique.push(m)
-            preloadImage(m)
+            added++
           }
         }
-        movies.value = [...unique]
-        await new Promise(r => setTimeout(r, 60))
       }
+
+      if (unique.length) {
+        movies.value = unique.slice(0, target)
+        loading.value = false
+      }
+      if (!added || !results.some(r => r.length)) break
+      await new Promise(r => setTimeout(r, 40))
+    }
+
+    if (!movies.value.length) {
+      error.value = 'Не вдалося завантажити фільми з TMDB.'
     }
   } catch (e) {
-    error.value = 'Не вдалося завантажити фільми з TMDB.'
-    loading.value = false
+    if (token === loadToken) {
+      error.value = 'Не вдалося завантажити фільми з TMDB.'
+    }
+  } finally {
+    if (token === loadToken) loading.value = false
   }
 }
 
@@ -1728,68 +1707,6 @@ canvas {
     width: 100%;
     max-width: 100%;
     padding: 1.25rem;
-  }
-}
-
-/* ── D-Pad Навігація для Smart TV та Сенсорних екранів ───────── */
-.stage-nav-controls {
-  position: absolute;
-  bottom: 1.25rem;
-  right: 1.25rem;
-  z-index: 40;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.35rem;
-  background: rgba(15, 23, 42, 0.82);
-  border: 1px solid rgba(255, 204, 0, 0.3);
-  border-radius: 1rem;
-  padding: 0.45rem;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7), 0 0 15px rgba(255, 204, 0, 0.15);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  user-select: none;
-}
-.stage-nav-row {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-.stage-nav-btn {
-  width: 2.3rem;
-  height: 2.3rem;
-  border-radius: 0.5rem;
-  background: rgba(30, 41, 59, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #f1f5f9;
-  font-size: 0.95rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.stage-nav-btn:hover,
-.stage-nav-btn:focus {
-  background: #ffcc00;
-  color: #0f172a;
-  border-color: #ffcc00;
-  transform: scale(1.08);
-}
-.stage-nav-btn--center {
-  font-size: 0.85rem;
-}
-@media (max-width: 640px) {
-  .stage-nav-controls {
-    bottom: 0.65rem;
-    right: 0.65rem;
-    padding: 0.3rem;
-    gap: 0.25rem;
-  }
-  .stage-nav-btn {
-    width: 2rem;
-    height: 2rem;
-    font-size: 0.8rem;
   }
 }
 </style>
