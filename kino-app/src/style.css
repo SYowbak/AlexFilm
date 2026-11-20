@@ -54,3 +54,12 @@ html.is-tv .movie-grid-container {
     grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
   }
 }
+
+html, body, #app {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+img, video, canvas {
+  max-width: 100%;
+}

@@ -27,6 +27,18 @@
           <span class="dropdown-chevron">▼</span>
         </div>
 
+        <label class="explore-limit" for="movie-limit">
+          <span>Фільмів</span>
+          <select
+            id="movie-limit"
+            class="genre-dropdown"
+            :value="currentLimit"
+            @change="onLimitChange"
+          >
+            <option v-for="opt in LIMIT_OPTIONS" :key="opt" :value="opt">{{ opt }}</option>
+          </select>
+        </label>
+
         <button
           class="btn-outline-neon explore-action-btn"
           @click="refreshMovies"
@@ -279,6 +291,7 @@ const LEVELS = {
   normal: { name: 'Норма', movies: 300, fps: 30, dpr: 1, effects: false, cache: 300 },
   max: { name: 'Макс', movies: 1000, fps: 60, dpr: 2, effects: true, cache: 600 }
 }
+const LIMIT_OPTIONS = [60, 300, 1000]
 
 const ua = typeof navigator !== 'undefined' ? navigator.userAgent.toLowerCase() : ''
 const isTvDevice = /tv|smarttv|vidaa|tizen|webos|netcast|viera|bravia|hisense|roku|aftb|appletv|crkey|hbbtv|box|odin|opera\s*tv/i.test(ua) ||
@@ -287,7 +300,7 @@ const cores = (typeof navigator !== 'undefined' && navigator.hardwareConcurrency
 const memory = (typeof navigator !== 'undefined' && navigator.deviceMemory) || 4
 
 function detectLevel() {
-  if (cores <= 2 || memory <= 2 || (isTvDevice && memory <= 4)) return 'economy'
+  if (memory <= 2 || (cores <= 2 && isTvDevice)) return 'economy'
   if (!isTvDevice && cores >= 8 && memory >= 8) return 'max'
   return 'normal'
 }
@@ -295,6 +308,20 @@ function detectLevel() {
 const storedLevel = typeof localStorage !== 'undefined' ? localStorage.getItem('alexfilm_explore_level') : null
 const performanceLevel = ref(LEVELS[storedLevel] ? storedLevel : detectLevel())
 const level = computed(() => LEVELS[performanceLevel.value])
+const currentLimit = computed(() => level.value.movies)
+
+const onLimitChange = (e) => {
+  const count = Number(e.target.value)
+  const next = Object.keys(LEVELS).find(key => LEVELS[key].movies === count)
+  if (!next || next === performanceLevel.value) return
+  performanceLevel.value = next
+  try {
+    localStorage.setItem('alexfilm_explore_level', next)
+  } catch (_) {}
+  handleResize()
+  currentOffsetPage = 1
+  loadMovies(1, selectedGenreId.value)
+}
 
 const panBy = (dx, dy) => {
   targetCamX += dx
@@ -1187,6 +1214,21 @@ onBeforeUnmount(() => {
   align-items: center;
 }
 
+.explore-limit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+.explore-limit .genre-dropdown {
+  min-width: 76px;
+  padding-top: 0.45rem;
+  padding-bottom: 0.45rem;
+  padding-right: 1.9rem;
+}
+
 .genre-dropdown {
   appearance: none;
   -webkit-appearance: none;
@@ -1693,6 +1735,10 @@ canvas {
   }
   .genre-dropdown {
     width: 100%;
+  }
+  .explore-limit .genre-dropdown {
+    width: auto;
+    flex: 0 0 auto;
   }
   .explore-action-btn {
     flex: 1 1 calc(50% - 0.25rem);

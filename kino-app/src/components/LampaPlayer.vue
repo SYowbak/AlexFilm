@@ -2159,6 +2159,8 @@ onBeforeUnmount(() => {
   cursor: pointer;
   background: rgba(0, 0, 0, 0.35);
   transition: background 0.3s ease;
+  min-width: 0;
+  overflow: hidden;
 }
 
 /* Кнопка запуску, коли браузер заблокував autoplay. */
@@ -2232,11 +2234,25 @@ onBeforeUnmount(() => {
   font-weight: 700;
   letter-spacing: 0.02em;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+  max-width: 100%;
+  padding: 0 1rem;
+  text-align: center;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .lampa-big-sub {
   color: #cbd5e1;
   font-size: 0.88rem;
   font-weight: 500;
+  max-width: 100%;
+  padding: 0 1rem;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ================= LAMPA PLAYER INFO (TOP) ================= */
@@ -2961,5 +2977,64 @@ onBeforeUnmount(() => {
 .lampa-fade-leave-to {
   opacity: 0;
   transform: translateY(10px);
+}
+
+/* ── Small screens: keep the player and its overlays inside the frame ── */
+@media (max-width: 640px) {
+  .lampa-player-container {
+    aspect-ratio: auto;
+    height: clamp(260px, 72vw, 360px);
+    max-width: 100%;
+    border-radius: 0.75rem;
+  }
+  .lampa-center-start {
+    gap: 0.45rem;
+    padding: 0 0.75rem 74px;
+  }
+  .lampa-big-play {
+    width: 58px;
+    height: 58px;
+  }
+  .lampa-big-play svg {
+    width: 28px;
+    height: 28px;
+  }
+  .lampa-big-title {
+    font-size: 0.95rem;
+    line-height: 1.25;
+    padding: 0;
+  }
+  .lampa-big-sub {
+    font-size: 0.72rem;
+    padding: 0;
+  }
+  .lampa-autoplay-hint {
+    top: 42%;
+    max-width: calc(100% - 1.5rem);
+    font-size: 0.8rem;
+    padding: 0.6rem 1rem;
+    text-align: center;
+  }
+  .pre-source-bar {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 0.5rem 0.75rem 0.75rem;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.72) 100%);
+  }
+  .pre-source-bar::-webkit-scrollbar {
+    display: none;
+  }
+  .pre-src-btn {
+    flex: 0 0 auto;
+    font-size: 0.7rem;
+    padding: 0.3rem 0.6rem;
+    max-width: 55vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 </style>
