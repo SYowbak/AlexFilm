@@ -4,7 +4,7 @@
   "private": true,
   "description": "AlexFilm - Онлайн кінотеатр з українським дубляжем",
   "scripts": {
-    "build": "npm --prefix kino-app install && npm --prefix kino-app run build && npm --prefix proxy-server install",
+    "build": "cd kino-app && npm install --include=dev && npm run build && cd ../proxy-server && npm install",
     "start": "node proxy-server/server.js",
     "test": "npm --prefix proxy-server test && npm --prefix kino-app test"
   },

@@ -10,16 +10,14 @@
     "test": "node --test test/"
   },
   "dependencies": {
+    "@vitejs/plugin-vue": "^6.0.5",
     "autoprefixer": "^10.4.27",
     "hls.js": "^1.6.15",
     "pinia": "^3.0.4",
     "postcss": "^8.5.33",
     "tailwindcss": "3.4",
+    "vite": "^8.3.8",
     "vue": "^3.5.45",
     "vue-router": "^5.0.4"
-  },
-  "devDependencies": {
-    "@vitejs/plugin-vue": "^6.0.5",
-    "vite": "^8.3.8"
   }
 }
