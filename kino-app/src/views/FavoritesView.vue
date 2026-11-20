@@ -10,7 +10,7 @@
       <router-link to="/login" class="btn-neon px-8 py-3 text-lg">Увійти</router-link>
     </div>
 
-    <div v-else-if="favoritesStore.favorites.length > 0" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-6">
+    <div v-else-if="favoritesStore.favorites.length > 0" class="movie-grid-container grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-4 sm:gap-6">
       <MovieCard 
         v-for="movie in favoritesStore.favorites" 
         :key="movie.id" 

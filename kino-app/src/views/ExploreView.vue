@@ -274,6 +274,11 @@ const MAX_MAGNIFICATION = 5.0 // Smooth scaling
 const GRID_COLS = 26
 const GRID_ROWS = 18
 
+// Виявлення Smart TV (Hisense VIDAA, WebOS, Tizen тощо)
+const isTvDevice = typeof navigator !== 'undefined' && (
+  /tv|smarttv|vidaa|tizen|webos|netcast|viera|bravia|hisense|roku|aftb|appletv|crkey/i.test(navigator.userAgent)
+)
+
 // Camera in world pixels
 let camX = 0
 let camY = 0
@@ -468,12 +473,22 @@ function warpScreenPoint(x, y, lx, ly, R, M) {
   return { x, y, rho, domeH: 0, factor: 0 }
 }
 
+let lastRenderTime = 0
+
 // Render Loop
-function render() {
+function render(timestamp = 0) {
   if (!canvasEl.value || !stageEl.value) {
     animId = requestAnimationFrame(render)
     return
   }
+
+  // На телевізорах обмежуємо до ~30 FPS, щоб слабкий ТВ-процесор не навантажувався
+  // на 100% і не викликав зависання системи. На ноутбуці працює повна швидкість 60 FPS.
+  if (isTvDevice && timestamp && timestamp - lastRenderTime < 33) {
+    animId = requestAnimationFrame(render)
+    return
+  }
+  lastRenderTime = timestamp
 
   const canvas = canvasEl.value
   const ctx = canvas.getContext('2d')
@@ -704,8 +719,8 @@ function render() {
         drawH
       )
 
-      // Soft 3D curvature shading
-      if (card.brightness < 0.95 && !card.isSelected && !isHovered) {
+      // Soft 3D curvature shading (на телевізорах вимикаємо для високої швидкодії)
+      if (!isTvDevice && card.brightness < 0.95 && !card.isSelected && !isHovered) {
         ctx.fillStyle = `rgba(0, 0, 0, ${0.28 * (1.0 - card.brightness)})`
         ctx.fillRect(
           drawX - drawW / 2,
@@ -928,7 +943,9 @@ function pickRandomMovie() {
 function handleResize() {
   if (!stageEl.value || !canvasEl.value) return
   const rect = stageEl.value.getBoundingClientRect()
-  const dpr = window.devicePixelRatio || 1
+  // На ноутбуках зберігаємо повну чіткість (до 2.0).
+  // На 4K Smart TV обмежуємо DPR до 1.0, щоб графічний буфер не переповнював пам'ять телевізора.
+  const dpr = isTvDevice ? 1.0 : Math.min(window.devicePixelRatio || 1, 2)
 
   canvasEl.value.width = rect.width * dpr
   canvasEl.value.height = rect.height * dpr

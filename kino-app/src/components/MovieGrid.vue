@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- Основна сітка: 5 колонок на десктопі, щоб 20 фільмів ділились рівно без 4 пустих місць -->
-    <div v-if="!loading && movies.length > 0" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-6">
+    <div v-if="!loading && movies.length > 0" class="movie-grid-container grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 gap-4 sm:gap-6">
       <MovieCard 
         v-for="movie in movies" 
         :key="movie.id" 

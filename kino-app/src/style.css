@@ -24,3 +24,33 @@
   -webkit-box-orient: vertical;  
   overflow: hidden;
 }
+
+/* Адаптивна сітка фільмів для телевізорів та екранів з різним масштабуванням:
+   - Смартфони (< 480px): 2 колонки
+   - Проміжні екрани / ТВ з масштабуванням VIDAA OS (480px - 639px): 3-4 колонки
+   - Планшети (640px - 1023px): 3-4 колонки
+   - Ноутбуки / Десктоп (>= 1024px): рівно 5 колонок (20 фільмів діляться порівну)
+*/
+@media (min-width: 480px) and (max-width: 579px) {
+  .movie-grid-container {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (min-width: 580px) and (max-width: 639px) {
+  .movie-grid-container {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+
+@media tv and (min-width: 480px) {
+  .movie-grid-container {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+
+@media tv and (min-width: 960px) {
+  .movie-grid-container {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  }
+}
