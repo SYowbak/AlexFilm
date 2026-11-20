@@ -21,21 +21,22 @@
     </div>
 
     <!-- Пагінація -->
-    <div v-if="totalPages > 1 && !loading && movies.length > 0" class="mt-12 flex justify-center items-center gap-2 flex-wrap">
+    <div v-if="totalPages > 1 && !loading && movies.length > 0" class="mt-10 sm:mt-12 flex justify-center items-center gap-1 sm:gap-2 select-none">
       <button 
         @click="$emit('page-change', currentPage - 1)"
         :disabled="currentPage === 1"
-        class="px-4 py-2 rounded-lg bg-slate-800 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-700 transition"
+        class="flex-shrink-0 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg bg-slate-800 text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-700 transition whitespace-nowrap"
       >
-        Попередня
+        <span class="hidden sm:inline">Попередня</span>
+        <span class="sm:hidden">←</span>
       </button>
       
-      <div class="flex gap-1 overflow-x-auto max-w-[200px] sm:max-w-md hide-scrollbar">
+      <div class="flex gap-1 overflow-x-auto max-w-[200px] sm:max-w-md hide-scrollbar flex-shrink-0">
         <button 
           v-for="page in visiblePages" 
           :key="page"
           @click="$emit('page-change', page)"
-          class="min-w-[40px] h-10 rounded-lg flex items-center justify-center transition-colors"
+          class="flex-shrink-0 min-w-[32px] sm:min-w-[40px] h-8 sm:h-10 text-xs sm:text-sm rounded-lg flex items-center justify-center transition-colors font-medium"
           :class="currentPage === page ? 'bg-neon text-slate-950 font-bold' : 'bg-slate-800 text-white hover:bg-slate-700'"
         >
           {{ page }}
@@ -44,9 +45,10 @@
       <button 
         @click="$emit('page-change', currentPage + 1)"
         :disabled="currentPage === totalPages"
-        class="px-4 py-2 rounded-lg bg-slate-800 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-700 transition"
+        class="flex-shrink-0 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg bg-slate-800 text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-700 transition whitespace-nowrap"
       >
-        Наступна
+        <span class="hidden sm:inline">Наступна</span>
+        <span class="sm:hidden">→</span>
       </button>
     </div>
   </div>

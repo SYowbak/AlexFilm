@@ -52,7 +52,7 @@
 </template>
 
 <script setup>
-import { watch } from 'vue'
+import { watch, onMounted } from 'vue'
 import { useAuthStore } from './stores/auth'
 import { useFavoritesStore } from './stores/favorites'
 import AppToast from './components/AppToast.vue'
@@ -66,4 +66,17 @@ watch(
   (userId) => favoritesStore.syncUser(userId),
   { immediate: true }
 )
+
+// Детекція Smart TV (Hisense VIDAA, WebOS, Tizen тощо) для оптимізації сітки
+onMounted(() => {
+  try {
+    const isTv = typeof navigator !== 'undefined' && (
+      /tv|smarttv|vidaa|tizen|webos|netcast|viera|bravia|hisense|roku|aftb|appletv|crkey|hbbtv|box/i.test(navigator.userAgent) ||
+      (typeof window !== 'undefined' && window.screen && (window.screen.width >= 1920 || window.screen.height >= 1080) && (window.devicePixelRatio >= 2.5 || /hisense|vidaa/i.test(navigator.userAgent)))
+    )
+    if (isTv && typeof document !== 'undefined') {
+      document.documentElement.classList.add('is-tv')
+    }
+  } catch (_) {}
+})
 </script>

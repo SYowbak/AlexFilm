@@ -4,18 +4,19 @@
     @click="goToDetails"
   >
     <!-- Постер -->
-    <div class="relative aspect-[2/3] overflow-hidden">
+    <div class="relative aspect-[2/3] overflow-hidden bg-slate-800">
       <img 
-        v-if="movie.poster_path"
+        v-if="movie.poster_path && !imgError"
         :src="tmdbApi.getImageUrl(movie.poster_path)" 
         :alt="movie.title"
+        @error="handleImgError"
         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
       >
       <img 
         v-else
         src="/placeholder-movie.svg" 
         :alt="movie.title"
-        class="w-full h-full object-cover opacity-50"
+        class="w-full h-full object-cover opacity-60"
       >
       
       <!-- Оверлей при наведенні -->
@@ -64,7 +65,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { tmdbApi } from '../api/tmdb'
 import { useFavoritesStore } from '../stores/favorites'
@@ -76,6 +77,18 @@ const props = defineProps({
     required: true
   }
 })
+
+const imgError = ref(false)
+const handleImgError = () => {
+  imgError.value = true
+}
+
+watch(
+  () => props.movie?.poster_path,
+  () => {
+    imgError.value = false
+  }
+)
 
 const router = useRouter()
 const favoritesStore = useFavoritesStore()

@@ -28,15 +28,16 @@
         </div>
 
         <button
-          class="btn-outline-neon px-4 py-2 flex items-center gap-2"
+          class="btn-outline-neon explore-action-btn"
           @click="refreshMovies"
           :disabled="loading"
           title="Завантажити іншу добірку фільмів"
         >
-          <span :class="{ 'animate-spin': loading }">🔄</span> Оновити фільми
+          <span :class="{ 'animate-spin': loading }">🔄</span>
+          <span>Оновити<span class="hidden sm:inline"> фільми</span></span>
         </button>
-        <button class="btn-neon px-4 py-2" @click="pickRandomMovie">
-          🎲 Випадковий фільм
+        <button class="btn-neon explore-action-btn" @click="pickRandomMovie">
+          🎲 <span>Випадковий<span class="hidden sm:inline"> фільм</span></span>
         </button>
       </div>
     </div>
@@ -276,7 +277,9 @@ const GRID_ROWS = 18
 
 // Виявлення Smart TV (Hisense VIDAA, WebOS, Tizen тощо)
 const isTvDevice = typeof navigator !== 'undefined' && (
-  /tv|smarttv|vidaa|tizen|webos|netcast|viera|bravia|hisense|roku|aftb|appletv|crkey/i.test(navigator.userAgent)
+  /tv|smarttv|vidaa|tizen|webos|netcast|viera|bravia|hisense|roku|aftb|appletv|crkey|hbbtv|box/i.test(navigator.userAgent) ||
+  (typeof document !== 'undefined' && document.documentElement.classList.contains('is-tv')) ||
+  (typeof window !== 'undefined' && window.screen && (window.screen.width >= 1920 || window.screen.height >= 1080) && (window.devicePixelRatio >= 2.5 || /hisense|vidaa/i.test(navigator.userAgent)))
 )
 
 // Camera in world pixels
@@ -684,8 +687,8 @@ function render(timestamp = 0) {
 
     ctx.save()
 
-    // Shadow
-    if (card.isSelected || isHovered || card.factor > 0.35) {
+    // Shadow (на телевізорах вимикаємо складне блюрення тіней, зберігаючи 30/60 FPS без лагів процесора)
+    if (!isTvDevice && (card.isSelected || isHovered || card.factor > 0.35)) {
       ctx.shadowColor = card.isSelected
         ? 'rgba(255, 204, 0, 0.95)'
         : isHovered
@@ -1003,28 +1006,32 @@ async function loadMovies(offset = 1, genreId = selectedGenreId.value) {
     // Turn off full loading spinner immediately so the user can interact right away
     loading.value = false
 
-    // 2. Second wave: progressively fetch remaining 17 pages outwards in batches
-    const remainingPages = []
-    for (let i = 3; i < 20; i++) {
-      remainingPages.push(offset + i)
-    }
-
-    // Load in chunks of 4 pages with small delay
-    const chunkSize = 4
-    for (let i = 0; i < remainingPages.length; i += chunkSize) {
-      const chunk = remainingPages.slice(i, i + chunkSize)
-      const chunkResults = await Promise.all(chunk.map(p => fetchMoviesPage(p, genreId)))
-      const chunkFlat = chunkResults.flat()
-
-      for (const m of chunkFlat) {
-        if (!seen.has(m.id)) {
-          seen.add(m.id)
-          unique.push(m)
-          preloadImage(m)
-        }
+    // 2. Second wave: на телевізорах зупиняємося на перших 60 фільмах, щоб
+    // не забивати обмежену пам'ять (RAM) телевізора завантаженням 400 картинок.
+    // На ноутбуку/ПК продовжуємо завантажувати всі 20 сторінок для повної галактики.
+    if (!isTvDevice) {
+      const remainingPages = []
+      for (let i = 3; i < 20; i++) {
+        remainingPages.push(offset + i)
       }
-      movies.value = [...unique]
-      await new Promise(r => setTimeout(r, 60))
+
+      // Load in chunks of 4 pages with small delay
+      const chunkSize = 4
+      for (let i = 0; i < remainingPages.length; i += chunkSize) {
+        const chunk = remainingPages.slice(i, i + chunkSize)
+        const chunkResults = await Promise.all(chunk.map(p => fetchMoviesPage(p, genreId)))
+        const chunkFlat = chunkResults.flat()
+
+        for (const m of chunkFlat) {
+          if (!seen.has(m.id)) {
+            seen.add(m.id)
+            unique.push(m)
+            preloadImage(m)
+          }
+        }
+        movies.value = [...unique]
+        await new Promise(r => setTimeout(r, 60))
+      }
     }
   } catch (e) {
     error.value = 'Не вдалося завантажити фільми з TMDB.'
@@ -1173,8 +1180,21 @@ h1 {
 
 .toolbar-actions {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 0.75rem;
+}
+
+.explore-action-btn {
+  padding: 0.55rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+  transition: all 0.2s ease;
 }
 
 /* ===== Explore Canvas Stage ===== */
@@ -1579,14 +1599,33 @@ canvas {
 
 @media (max-width: 768px) {
   .explore-toolbar {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
   }
   .toolbar-actions {
-    margin-top: 1rem;
-    justify-content: flex-start;
+    margin-top: 0.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+  }
+  .genre-select-wrapper {
+    width: 100%;
+  }
+  .genre-dropdown {
+    width: 100%;
+  }
+  .explore-action-btn {
+    flex: 1 1 calc(50% - 0.25rem);
+    padding: 0.5rem 0.5rem;
+    font-size: 0.8rem;
+    min-width: 110px;
   }
   .explore-stage {
-    min-height: 480px;
+    min-height: 440px;
   }
   .film-details-panel {
     width: 100%;

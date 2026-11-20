@@ -2118,10 +2118,25 @@ app.get('/health', (_req, res) => {
 // ───────────────────────────────────────────────
 const distPath = path.resolve(__dirname, '../kino-app/dist')
 if (fs.existsSync(distPath)) {
-  app.use(express.static(distPath))
+  app.use(express.static(distPath, {
+    setHeaders: (res, filePath) => {
+      // index.html ніколи не кешується браузером (особливо на Smart TV),
+      // щоб нові релізи і оновлення застосовувалися миттєво.
+      if (filePath.endsWith('index.html')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+        res.setHeader('Pragma', 'no-cache')
+        res.setHeader('Expires', '0')
+      } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+      }
+    }
+  }))
   // Fallback для SPA (Vue Router HTML5 history mode) у Express 5
   app.use((req, res, next) => {
     if (req.method === 'GET' && !req.path.startsWith('/api/') && req.path !== '/health') {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+      res.setHeader('Pragma', 'no-cache')
+      res.setHeader('Expires', '0')
       return res.sendFile(path.join(distPath, 'index.html'))
     }
     next()

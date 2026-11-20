@@ -16,19 +16,19 @@
     </div>
 
     <!-- Список категорій -->
-    <div class="flex flex-wrap gap-2 sm:gap-3 justify-center sm:justify-start pb-4">
+    <div class="flex flex-wrap gap-2 sm:gap-3 justify-center sm:justify-start pb-4 notranslate" translate="no">
       <button
         v-for="category in categories"
         :key="category"
         @click="$emit('select', category)"
-        class="px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 border backdrop-blur-sm"
+        class="px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 border backdrop-blur-sm notranslate inline-flex items-center justify-center text-center select-none"
         :class="[
           selectedCategory === category 
-            ? 'bg-amber-500 text-slate-900 border-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)] scale-105' 
-            : 'bg-slate-800/80 text-slate-300 border-slate-700 hover:border-slate-500 hover:bg-slate-700'
+            ? 'bg-amber-500 text-slate-950 font-bold border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.6)] scale-105' 
+            : 'bg-slate-800 text-slate-200 border-slate-700 hover:border-slate-500 hover:bg-slate-700 hover:text-white'
         ]"
       >
-        {{ category }}
+        <span class="notranslate leading-normal" translate="no">{{ category }}</span>
       </button>
     </div>
 
