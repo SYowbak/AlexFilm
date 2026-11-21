@@ -227,21 +227,8 @@
         </div>
       </Transition>
 
-      <!-- Bottom bar: film count + professional pager -->
       <div class="stage-hint-bar">
-        <span class="stage-count">{{ movies.length }} фільмів</span>
-        <nav class="stage-pager" v-if="totalBatches > 1" aria-label="Сторінки добірки" @click.stop @mousedown.stop @touchstart.stop>
-          <button
-            v-for="item in pagerItems"
-            :key="item.key"
-            type="button"
-            class="pager-item"
-            :class="{ 'pager-item--current': item.page === currentBatch, 'pager-item--gap': item.gap }"
-            :disabled="item.gap || item.page === currentBatch"
-            :title="item.gap ? undefined : `Сторінка ${item.page}`"
-            @click="goToBatch(item.page)"
-          >{{ item.label }}</button>
-        </nav>
+        <span>{{ movies.length }} фільмів</span>
       </div>
     </div>
   </section>
@@ -314,34 +301,6 @@ const storedLevel = typeof localStorage !== 'undefined' ? localStorage.getItem('
 const performanceLevel = ref(LEVELS[storedLevel] ? storedLevel : detectLevel())
 const level = computed(() => LEVELS[performanceLevel.value])
 
-// Пагінація добірок: одна «сторінка» = 4 сторінки TMDB.
-const currentBatch = ref(1)
-const totalBatches = ref(1)
-
-const pagerItems = computed(() => {
-  const total = totalBatches.value
-  const cur = Math.min(Math.max(1, currentBatch.value), total)
-  const items = []
-  const push = (page, gap = false) => items.push({ key: gap ? `gap-${items.length}` : page, page, label: gap ? '…' : String(page), gap })
-
-  push(1)
-  const from = Math.max(2, cur - 2)
-  const to = Math.min(total - 1, cur + 2)
-  if (from > 2) push(0, true)
-  for (let p = from; p <= to; p++) push(p)
-  if (to < total - 1) push(0, true)
-  if (total > 1) push(total)
-  return items
-})
-
-function goToBatch(page) {
-  const target = Math.min(Math.max(1, Number(page) || 1), totalBatches.value)
-  if (target === currentBatch.value && movies.value.length) return
-  currentBatch.value = target
-  const offset = (target - 1) * PAGES_PER_BATCH + 1
-  loadMovies(offset, selectedGenreId.value)
-}
-
 const onLimitChange = (e) => {
   const next = e.target.value
   if (!LEVELS[next] || next === performanceLevel.value) return
@@ -350,7 +309,6 @@ const onLimitChange = (e) => {
     localStorage.setItem('alexfilm_explore_level', next)
   } catch (_) {}
   handleResize()
-  currentBatch.value = 1
   loadMovies(1, selectedGenreId.value)
 }
 
@@ -1072,14 +1030,11 @@ async function fetchMoviesPage(p, genreId) {
   const url = `${getApiOrigin()}/api/tmdb/discover/movie?${params.toString()}`
   try {
     const res = await fetch(url)
-    if (!res.ok) return { results: [], totalPages: 0 }
+    if (!res.ok) return []
     const data = await res.json()
-    return {
-      results: (data.results || []).filter(m => m && m.poster_path),
-      totalPages: Number(data.total_pages) || 0,
-    }
+    return (data.results || []).filter(m => m && m.poster_path)
   } catch {
-    return { results: [], totalPages: 0 }
+    return []
   }
 }
 
@@ -1099,29 +1054,18 @@ async function loadMovies(offset = 1, genreId = selectedGenreId.value) {
   const unique = []
   let page = offset
   let emptyPages = 0
-  let pagesAvailable = 0
 
   try {
-    while (unique.length < target && emptyPages < 2 && (!pagesAvailable || page <= pagesAvailable)) {
+    while (unique.length < target && emptyPages < 2) {
       const batch = []
-      for (let i = 0; i < PAGES_PER_BATCH && (!pagesAvailable || page + i <= pagesAvailable); i++) batch.push(page + i)
-      if (!batch.length) break
-      page += batch.length
-
-      const responses = await Promise.all(batch.map(p => fetchMoviesPage(p, genreId)))
+      for (let i = 0; i < PAGES_PER_BATCH; i++) batch.push(page++)
+      const results = await Promise.all(batch.map(p => fetchMoviesPage(p, genreId)))
       if (token !== loadToken) return
 
-      for (const resp of responses) {
-        if (resp.totalPages > pagesAvailable) {
-          pagesAvailable = resp.totalPages
-          totalBatches.value = Math.max(1, Math.ceil(pagesAvailable / PAGES_PER_BATCH))
-        }
-      }
-
       let added = 0
-      for (const resp of responses) {
-        if (!resp.results.length) emptyPages++
-        for (const m of resp.results) {
+      for (const list of results) {
+        if (!list.length) emptyPages++
+        for (const m of list) {
           if (!seen.has(m.id)) {
             seen.add(m.id)
             unique.push(m)
@@ -1134,7 +1078,7 @@ async function loadMovies(offset = 1, genreId = selectedGenreId.value) {
         movies.value = unique.slice(0, target)
         loading.value = false
       }
-      if (!added || !responses.some(r => r.results.length)) break
+      if (!added || !results.some(r => r.length)) break
       await new Promise(r => setTimeout(r, 40))
     }
 
@@ -1150,12 +1094,13 @@ async function loadMovies(offset = 1, genreId = selectedGenreId.value) {
   }
 }
 
+let currentOffsetPage = 1
+
 function selectGenre(id) {
   if (selectedGenreId.value === id) return
   selectedGenreId.value = id
   closeDetails()
-  currentBatch.value = 1
-  totalBatches.value = 1
+  currentOffsetPage = 1
   loadMovies(1, id)
 }
 
@@ -1165,9 +1110,8 @@ function onGenreSelectChange(e) {
 }
 
 function refreshMovies() {
-  const next = currentBatch.value >= totalBatches.value ? 1 : currentBatch.value + 1
-  currentBatch.value = next
-  loadMovies((next - 1) * PAGES_PER_BATCH + 1, selectedGenreId.value)
+  currentOffsetPage = (currentOffsetPage % 30) + 15
+  loadMovies(currentOffsetPage, selectedGenreId.value)
 }
 
 async function loadGenres() {
@@ -1794,60 +1738,8 @@ canvas {
     padding: 1.25rem;
   }
 }
-.stage-count {
-  white-space: nowrap;
-}
-
 .film-details-panel {
   touch-action: pan-y;
-}
-
-/* Professional pager: first / last page always visible, compact window */
-.stage-pager {
-  display: flex;
-  align-items: center;
-  gap: 0.22rem;
-  pointer-events: auto;
-  background: rgba(15, 23, 42, 0.86);
-  border: 1px solid rgba(255, 204, 0, 0.22);
-  border-radius: 999px;
-  padding: 0.22rem 0.3rem;
-  backdrop-filter: blur(8px);
-}
-.pager-item {
-  min-width: 28px;
-  height: 28px;
-  padding: 0 0.4rem;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: #cbd5e1;
-  font-size: 0.75rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease;
-}
-.pager-item:hover:not(:disabled):not(.pager-item--gap) {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-}
-.pager-item--current {
-  background: #ffcc00 !important;
-  color: #020617 !important;
-  box-shadow: 0 0 12px rgba(255, 204, 0, 0.45);
-}
-.pager-item--gap {
-  cursor: default;
-  color: #64748b;
-  letter-spacing: -0.08em;
-}
-.pager-item:focus-visible {
-  outline: 2px solid #ffcc00;
-  outline-offset: 1px;
 }
 
 /* Phone: keep the whole board in the viewport and stop page scroll on drag */
@@ -1899,10 +1791,5 @@ canvas {
     gap: 0.35rem;
     font-size: 0.68rem;
   }
-  .pager-item {
-    min-width: 24px;
-    height: 24px;
-    padding: 0 0.3rem;
-    font-size: 0.68rem;
-  }
-}</style>
+}
+</style>

@@ -41,37 +41,33 @@
       <p class="text-slate-500">Спробуйте змінити критерії пошуку або обрати іншу категорію настрою.</p>
     </div>
 
-    <!-- Пагінація -->
-    <div v-if="totalPages > 1 && !loading && movies.length > 0" class="mt-10 sm:mt-12 flex justify-center items-center gap-1 sm:gap-2 select-none">
-      <button 
-        @click="$emit('page-change', currentPage - 1)"
+    <!-- Пагінація: перша й остання сторінка завжди видимі, між ними — вікно -->
+    <nav v-if="totalPages > 1 && !loading && movies.length > 0" class="pager" aria-label="Сторінки фільмів">
+      <button
+        class="pager__arrow"
         :disabled="currentPage === 1"
-        class="flex-shrink-0 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg bg-slate-800 text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-700 transition whitespace-nowrap"
-      >
-        <span class="hidden sm:inline">Попередня</span>
-        <span class="sm:hidden">←</span>
-      </button>
-      
-      <div class="flex gap-1 overflow-x-auto max-w-[200px] sm:max-w-md hide-scrollbar flex-shrink-0">
-        <button 
-          v-for="page in visiblePages" 
-          :key="page"
-          @click="$emit('page-change', page)"
-          class="flex-shrink-0 min-w-[32px] sm:min-w-[40px] h-8 sm:h-10 text-xs sm:text-sm rounded-lg flex items-center justify-center transition-colors font-medium"
-          :class="currentPage === page ? 'bg-neon text-slate-950 font-bold' : 'bg-slate-800 text-white hover:bg-slate-700'"
-        >
-          {{ page }}
-        </button>
-      </div>
-      <button 
-        @click="$emit('page-change', currentPage + 1)"
+        title="Попередня сторінка"
+        @click="$emit('page-change', currentPage - 1)"
+      >‹</button>
+
+      <button
+        v-for="item in pagerItems"
+        :key="item.key"
+        type="button"
+        class="pager__page"
+        :class="{ 'pager__page--current': item.value === currentPage, 'pager__page--gap': item.gap }"
+        :disabled="item.gap || item.value === currentPage"
+        :title="item.gap ? undefined : `Сторінка ${item.value}`"
+        @click="$emit('page-change', item.value)"
+      >{{ item.label }}</button>
+
+      <button
+        class="pager__arrow"
         :disabled="currentPage === totalPages"
-        class="flex-shrink-0 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg bg-slate-800 text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-700 transition whitespace-nowrap"
-      >
-        <span class="hidden sm:inline">Наступна</span>
-        <span class="sm:hidden">→</span>
-      </button>
-    </div>
+        title="Наступна сторінка"
+        @click="$emit('page-change', currentPage + 1)"
+      >›</button>
+    </nav>
   </div>
 </template>
 
@@ -129,21 +125,27 @@ const gridColsClass = computed(() => {
   return 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5'
 })
 
-// Логіка для відображення обмеженої кількості сторінок (якщо їх 50)
-const visiblePages = computed(() => {
-  const maxVisible = 5
-  let start = Math.max(1, props.currentPage - Math.floor(maxVisible / 2))
-  let end = Math.min(props.totalPages, start + maxVisible - 1)
-  
-  if (end - start + 1 < maxVisible) {
-    start = Math.max(1, end - maxVisible + 1)
-  }
-  
-  const pages = []
-  for (let i = start; i <= end; i++) {
-    pages.push(i)
-  }
-  return pages
+// Перша і остання сторінка — завжди цифрою. між ними вікно ±2
+// і многоточия, якщо є розрив.
+const pagerItems = computed(() => {
+  const total = Math.max(1, props.totalPages)
+  const cur = Math.min(Math.max(1, props.currentPage), total)
+  const items = []
+  const push = (value, gap = false) => items.push({
+    key: gap ? `gap-${items.length}` : value,
+    value,
+    label: gap ? '…' : String(value),
+    gap,
+  })
+
+  push(1)
+  const from = Math.max(2, cur - 2)
+  const to = Math.min(total - 1, cur + 2)
+  if (from > 2) push(0, true)
+  for (let p = from; p <= to; p++) push(p)
+  if (to < total - 1) push(0, true)
+  if (total > 1) push(total)
+  return items
 })
 </script>
 
@@ -164,5 +166,68 @@ const visiblePages = computed(() => {
 .hide-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 2.5rem;
+}
+.pager__page,
+.pager__arrow {
+  min-width: 38px;
+  height: 38px;
+  padding: 0 0.55rem;
+  border-radius: 0.6rem;
+  border: 1px solid #334155;
+  background: #1e293b;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+}
+.pager__arrow {
+  font-size: 1.25rem;
+  line-height: 1;
+  min-width: 34px;
+}
+.pager__page:hover:not(:disabled):not(.pager__page--gap),
+.pager__arrow:hover:not(:disabled) {
+  background: #334155;
+  border-color: #64748b;
+}
+.pager__page--current {
+  background: #ffcc00 !important;
+  border-color: #ffcc00 !important;
+  color: #020617 !important;
+  box-shadow: 0 0 14px rgba(255, 204, 0, 0.38);
+}
+.pager__page--gap {
+  border-color: transparent;
+  background: transparent;
+  color: #64748b;
+  cursor: default;
+  letter-spacing: -0.08em;
+}
+.pager__page:focus-visible,
+.pager__arrow:focus-visible {
+  outline: 2px solid #ffcc00;
+  outline-offset: 2px;
+}
+.pager :disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+@media (max-width: 480px) {
+  .pager { gap: 0.22rem; margin-top: 1.75rem; }
+  .pager__page, .pager__arrow { min-width: 32px; height: 32px; padding: 0 0.35rem; font-size: 0.78rem; }
 }
 </style>
