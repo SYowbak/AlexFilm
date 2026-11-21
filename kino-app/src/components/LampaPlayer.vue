@@ -56,6 +56,18 @@
       </div>
       <span class="lampa-big-title">Дивитися «{{ title }}»</span>
       <span class="lampa-big-sub">{{ startMetaLine }}</span>
+      <div v-if="uaChecked && !lastUaData" class="ua-fallback" @click.stop>
+        <span class="ua-fallback__hint">Або знайдіть дубляж на сайтах:</span>
+        <div class="ua-fallback__links">
+          <button
+            v-for="link in uaSearchLinks"
+            :key="link.name"
+            type="button"
+            class="ua-fallback__link"
+            @click="openUaSearchLink(link.url)"
+          >{{ link.name }}</button>
+        </div>
+      </div>
     </div>
 
     <!-- OSD (On-Screen Display) сповіщення дій -->
@@ -812,7 +824,7 @@ const availableSources = computed(() => {
     // Чесний статус: якщо перевірка вже завершилась і UA-релізу немає —
     // не обіцяємо дубляж, якого не буде
     if (s.isUa && uaChecked.value && !lastUaData.value) {
-      return { ...s, label: `${s.label} — не знайдено`, unavailable: true }
+      return { ...s, label: 'UA дубляж — не знайдено', unavailable: true }
     }
     return s
   })
@@ -821,9 +833,25 @@ const availableSources = computed(() => {
 const currentSourceLabel = computed(() => {
   const src = availableSources.value.find(s => s.id === currentSource.value)
   if (!src) return 'UA Дубляж'
-  // Той самий підпис, що й у меню — щоб статус «не знайдено» був видимий.
   return src.label
 })
+
+// Коли серверний автопошук не зміг дістатися до сайтів (часто блокується
+// IP хостингу), найнадійніший шлях — відкрити пошук у браузері користувача.
+// Тут завжди ті самі сайти, які людина відкриває вручну, з готовим запитом.
+const uaSearchLinks = computed(() => {
+  const q = encodeURIComponent(props.originalTitle || props.title || '')
+  return [
+    { name: 'UAFLIX', url: `https://uafix.net/index.php?do=search&subaction=search&story=${q}` },
+    { name: 'UAkino', url: `https://uakino.best/ua/?do=search&subaction=search&story=${q}` },
+    { name: 'UASerials', url: `https://uaserials.fm/index.php?do=search&subaction=search&story=${q}` },
+    { name: 'Eneyida', url: `https://eneyida.tv/index.php?do=search&subaction=search&story=${q}` }
+  ]
+})
+
+const openUaSearchLink = (url) => {
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
 
 // Короткий ряд метаданих у верхній панелі: мова дубляжу без деталей
 // («Українська (Офіційний дубляж)» → «Українська»), повний текст — у title.
@@ -837,7 +865,7 @@ const audioLabel = computed(() => {
 // Рядок під кнопкою «Дивитися»: чесний статус пошуку дубляжу.
 const startMetaLine = computed(() => {
   if (!uaChecked.value) return 'Шукаємо український дубляж…'
-  if (!lastUaData.value) return 'Український дубляж не знайдено'
+  if (!lastUaData.value) return 'Дубляж не знайдено автоматично'
   return releaseQuality.value
     ? `Український дубляж · ${releaseQuality.value}`
     : 'Український дубляж'
@@ -2253,6 +2281,40 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.ua-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 100%;
+  margin-top: 0.35rem;
+}
+.ua-fallback__hint {
+  color: #94a3b8;
+  font-size: 0.76rem;
+}
+.ua-fallback__links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem;
+}
+.ua-fallback__link {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 204, 0, 0.45);
+  color: #ffcc00;
+  border-radius: 9999px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.ua-fallback__link:hover,
+.ua-fallback__link:focus-visible {
+  background: rgba(255, 204, 0, 0.2);
 }
 
 /* ================= LAMPA PLAYER INFO (TOP) ================= */
