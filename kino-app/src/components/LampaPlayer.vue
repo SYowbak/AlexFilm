@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="lampa-player-container" ref="containerRef" @mousemove="onActivity" @mouseleave="onMouseLeave" @touchend="onContainerTouchEnd">
     <!-- Ukrainian dub discovered in the user's browser (server sees a trailer-only page) -->
     <iframe
@@ -876,8 +876,9 @@ async function tryClientUaDiscovery() {
   const query = (props.originalTitle || props.title || '').trim()
   if (!query) return
   try {
-    const searchUrl = `https://uafix.net/index.php?do=search&subaction=search&story=${encodeURIComponent(query)}`
-    const sRes = await fetch(UA_PAGE_RELAY + encodeURIComponent(searchUrl))
+    const searchUrl = new URL(`https://uafix.net/index.php?do=search&subaction=search&story=${encodeURIComponent(query)}`)
+    searchUrl.searchParams.set('cb', String(Date.now()))
+    const sRes = await fetch(UA_PAGE_RELAY + encodeURIComponent(searchUrl.href))
     if (!sRes.ok) return
     const sDoc = new DOMParser().parseFromString(await sRes.text(), 'text/html')
     let filmHref = null
@@ -885,23 +886,35 @@ async function tryClientUaDiscovery() {
       if (filmHref) return
       const h2 = card.querySelector('h2')
       if (!h2) return
-      const link = h2.closest('a')
-      const href = link?.getAttribute('href') || ''
+      const href = h2.closest('a')?.getAttribute('href') || ''
       if (href.includes('/films/') || href.includes('/serialy/')) filmHref = href
     })
     if (!filmHref) return
 
-    const filmUrl = new URL(filmHref, 'https://uafix.net').href
-    const pRes = await fetch(UA_PAGE_RELAY + encodeURIComponent(filmUrl))
-    if (!pRes.ok) return
-    const pDoc = new DOMParser().parseFromString(await pRes.text(), 'text/html')
-    for (const frame of pDoc.querySelectorAll('iframe')) {
-      const src = frame.getAttribute('src') || frame.getAttribute('data-src')
-      if (!src) continue
-      const normalized = src.startsWith('//') ? `https:${src}` : src
-      if (UA_EMBED_HOST_RE.test(normalized)) {
-        uaEmbedUrl.value = normalized
-        return
+    const filmPage = new URL(filmHref, 'https://uafix.net')
+    for (let attempt = 0; attempt < 3; attempt++) {
+      filmPage.searchParams.set('cb', String(Date.now() + attempt))
+      const pRes = await fetch(UA_PAGE_RELAY + encodeURIComponent(filmPage.href))
+      if (!pRes.ok) continue
+      const pDoc = new DOMParser().parseFromString(await pRes.text(), 'text/html')
+
+      const candidates = []
+      for (const frame of pDoc.querySelectorAll('iframe')) {
+        candidates.push(frame.getAttribute('src') || frame.getAttribute('data-src') || '')
+      }
+      // UAFLIX кладе плеєр у <meta property="og:video:iframe"> замість
+      // живого <iframe> — звичайний DOMParser тут нічого не знайде.
+      const metaContent = pDoc.querySelector('meta[property="og:video:iframe"]')?.getAttribute('content') || ''
+      const metaSrc = metaContent.match(/src=["']([^"']+)["']/i)
+      if (metaSrc) candidates.push(metaSrc[1])
+
+      for (const src of candidates) {
+        if (!src) continue
+        const normalized = src.startsWith('//') ? `https:${src}` : src
+        if (UA_EMBED_HOST_RE.test(normalized)) {
+          uaEmbedUrl.value = normalized
+          return
+        }
       }
     }
   } catch (e) {
