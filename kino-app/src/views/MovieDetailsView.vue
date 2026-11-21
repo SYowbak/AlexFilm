@@ -95,11 +95,11 @@
           <div class="mt-8 bg-slate-900/50 rounded-2xl p-6 border border-slate-800/50 backdrop-blur-sm">
             <h3 class="text-xl font-semibold text-white mb-3 border-l-4 border-neon pl-3">Шукати в українській озвучці</h3>
             
-            <div class="mb-5 bg-black/40 p-3 rounded-lg border border-slate-800/50">
-              <label class="flex items-center gap-3 text-sm text-slate-300 cursor-pointer hover:text-white transition-colors w-max">
-                <input type="checkbox" v-model="useOriginalTitle" class="w-4 h-4 rounded border-slate-600 bg-slate-700 text-neon focus:ring-neon focus:ring-offset-slate-950">
-                <span>
-                  Шукати за оригінальною назвою <span class="text-slate-400 ml-1">({{ movie.original_title }})</span>
+            <div class="mb-5 bg-black/40 p-3 rounded-lg border border-slate-800/50 min-w-0">
+              <label class="flex items-start gap-3 text-sm text-slate-300 cursor-pointer hover:text-white transition-colors">
+                <input type="checkbox" v-model="useOriginalTitle" class="w-4 h-4 mt-0.5 flex-shrink-0 rounded border-slate-600 bg-slate-700 text-neon focus:ring-neon focus:ring-offset-slate-950">
+                <span class="min-w-0 break-words">
+                  Шукати за оригінальною назвою <span class="text-slate-400">({{ movie.original_title }})</span>
                 </span>
               </label>
               <p class="text-xs text-slate-500 mt-2 ml-7">Піратські кінотеатри часто краще знаходять фільми саме за англійською назвою, якщо офіційний переклад ще не вийшов.</p>
@@ -116,7 +116,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                Шукати на UAFLIX (uafix.net)
+                Шукати на UAFLIX
               </button>
               <button @click="openUaSearch('uakino')" class="btn-outline-neon flex items-center gap-2 text-white border-slate-600 hover:bg-white/10">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
