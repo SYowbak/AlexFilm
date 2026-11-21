@@ -2172,22 +2172,29 @@ app.get('/api/diag-net', async (req, res) => {
   const url = `https://uafix.net/index.php?do=search&subaction=search&story=${encodeURIComponent(q)}`
   const out = {}
   try {
-    const r = await httpGet(url, {
-      allowedHosts: ['uafix.net'],
-      referer: 'https://uafix.net/',
-      timeout: 9000,
-    })
-    const html = await r.text()
-    const $ = cheerio.load(html)
-    const cards = []
+    const r = await httpGet(url, { allowedHosts: ['uafix.net'], referer: 'https://uafix.net/', timeout: 9000 })
+    const $ = cheerio.load(await r.text())
+    let href = null
     $('.sres-wrap, article, .short-item').each((i, el) => {
+      if (href) return
       const h2 = $(el).find('h2')
-      const a = h2.find('a').length ? h2.find('a') : $(el).find('a').first()
-      cards.push({ h2: h2.text().trim().slice(0, 100), href: a.attr('href') || h2.closest('a').attr('href') || null })
+      if (!/матчбокс|matchbox/i.test(h2.text())) return
+      href = h2.closest('a').attr('href') || null
     })
-    out.fetch = { status: r.status, len: html.length, cards }
+    out.searchHref = href
+    if (href) {
+      const p = await httpGet(href, { allowedHosts: ['uafix.net'], referer: 'https://uafix.net/', timeout: 9000 })
+      const ph = await p.text()
+      const $$ = cheerio.load(ph)
+      out.page = {
+        status: p.status,
+        len: ph.length,
+        year: extractPageYear(ph),
+        iframes: $$('iframe').map((i, el) => $$(el).attr('src') || $$(el).attr('data-src')).get().slice(0, 6),
+      }
+    }
   } catch (e) {
-    out.fetch = { error: sanitizeLog(e.message) }
+    out.error = sanitizeLog(e.message)
   }
   res.json(out)
 })
