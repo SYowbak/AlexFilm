@@ -1452,12 +1452,38 @@ async function searchUafix(title, origTitle, year, mediaType) {
               frameHtml = await ifrRes.text()
               hlsUrl = extractHlsUrl(frameHtml)
             }
+            if (!hlsUrl) {
+              const relayIfr = await httpGetViaRelay(iframeUrl, { referer: 'https://uafix.net/' })
+              if (relayIfr.ok) {
+                const relayFrame = await relayIfr.text()
+                if (extractHlsUrl(relayFrame)) {
+                  frameHtml = relayFrame
+                  hlsUrl = extractHlsUrl(frameHtml)
+                }
+              }
+            }
           } catch (e) {}
 
           // ГАРАНТІЯ ВІДТВОРЮВАНОСТІ: мертвий потік тут же пропускаємо
           // і пробуємо наступного кандидата (наступна сторінка того ж
           // сайту → інші сайти), замість віддавати клієнту 404-маніфест.
-          const probe = await probeStreamHls(hlsUrl)
+          let probe = await probeStreamHls(hlsUrl)
+          if (hlsUrl && !probe.live) {
+            // Хостинг може бачити CDN інакше, ніж relay — пробуємо
+            // підтвердити потік через relay перед відмовою.
+            try {
+              const relayMaster = await httpGetViaRelay(hlsUrl)
+              if (relayMaster.ok) {
+                const master = await relayMaster.text()
+                if (/#EXTM3U/i.test(master)) {
+                  const res = [...master.matchAll(/RESOLUTION=(\d+)x(\d+)/gi)].map(m => ({
+                    width: parseInt(m[1], 10), height: parseInt(m[2], 10),
+                  }))
+                  probe = { live: true, resolution: res.length ? res.reduce((a, b) => b.width > a.width ? b : a) : null, reason: null }
+                }
+              }
+            } catch (e) {}
+          }
           if (hlsUrl && !probe.live) {
             console.log(`  [Stream] SKIP "${sanitizeLog(match.title)}" — потік недоступний (${probe.reason})`)
             continue
