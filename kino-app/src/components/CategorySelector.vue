@@ -22,10 +22,7 @@
         :key="category"
         @click="$emit('select', category)"
         class="mood-chip"
-        :class="{
-          'mood-chip--active': selectedCategory === category,
-          'mood-chip--festive': category === 'Різдвяний'
-        }"
+        :class="{ 'mood-chip--active': selectedCategory === category }"
         :aria-pressed="selectedCategory === category"
       >
         <span class="notranslate" translate="no">{{ category }}</span>
@@ -95,16 +92,6 @@ const categories = Object.keys(MOOD_CATEGORIES)
   border-color: #f59e0b;
   color: #020617;
   box-shadow: 0 0 14px rgba(245, 158, 11, 0.35);
-}
-.mood-chip--active.mood-chip--festive {
-  background: linear-gradient(135deg, #16a34a, #dc2626);
-  border-color: #facc15;
-  color: #fff;
-  box-shadow: 0 0 16px rgba(220, 38, 38, 0.4);
-}
-.mood-chip--festive:not(.mood-chip--active) {
-  border-color: rgba(74, 222, 128, 0.45);
-  background: rgba(20, 83, 45, 0.35);
 }
 .mood-chip:focus-visible {
   outline: 2px solid #ffcc00;

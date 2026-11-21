@@ -1023,7 +1023,7 @@ async function fetchMoviesPage(p, genreId) {
   // скопіювати та витратити квоту.
   const params = new URLSearchParams({
     language: 'uk-UA',
-    sort_by: 'popularity.desc',
+    sort_by: 'primary_release_date.desc',
     page: String(p),
   })
   if (genreId) params.set('with_genres', String(genreId))

@@ -109,7 +109,7 @@ const filters = ref({
   genre: '',
   year: '',
   rating: '6', // Значення за замовчуванням з API
-  sortBy: 'popularity.desc'
+  sortBy: 'primary_release_date.desc'
 })
 
 // Синхронізуємо зі зовнішнім станом, якщо він змінюється
@@ -123,7 +123,7 @@ const hasActiveFilters = computed(() => {
   return filters.value.genre !== '' || 
          filters.value.year !== '' || 
          filters.value.rating !== '6' ||
-         filters.value.sortBy !== 'popularity.desc'
+         filters.value.sortBy !== 'primary_release_date.desc'
 })
 
 const loadGenres = async () => {
@@ -144,7 +144,7 @@ const resetFilters = () => {
     genre: '',
     year: '',
     rating: '6',
-    sortBy: 'popularity.desc'
+    sortBy: 'primary_release_date.desc'
   }
   emit('filter-change', { ...filters.value })
 }

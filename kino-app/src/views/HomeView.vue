@@ -117,7 +117,7 @@ const loadMovies = async (page = 1) => {
       movies.value = results
       totalPages.value = 20
     } else {
-      results = await tmdbApi.getPopularMovies(page)
+      results = await tmdbApi.getNewestMovies(page)
       movies.value = results
       totalPages.value = 50
     }
@@ -139,6 +139,8 @@ const handleCategorySelect = (category) => {
       selectedCategory.value = category
       searchMode.value = false
       searchQuery.value = ''
+      filterMode.value = false
+      activeFilters.value = {}
       loadMovies(1)
   }
 }
@@ -159,7 +161,7 @@ const handleClearSearch = () => {
 }
 
 const handleAdvancedFilter = (filters) => {
-  const hasActiveFilters = filters.genre !== '' || filters.year !== '' || filters.rating !== '6' || filters.sortBy !== 'popularity.desc'
+  const hasActiveFilters = filters.genre !== '' || filters.year !== '' || filters.rating !== '6' || filters.sortBy !== 'primary_release_date.desc'
   
   if (hasActiveFilters || filterMode.value) {
     activeFilters.value = filters
