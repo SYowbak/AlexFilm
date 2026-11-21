@@ -2168,19 +2168,26 @@ if (require.main === module) {
 }
 
 app.get('/api/diag-net', async (req, res) => {
-  const targets = [
-    'https://uafix.net/index.php?do=search&subaction=search&story=Matchbox',
-    'https://uaserials.fm/',
-    'https://zetvideo.net/',
-  ]
+  const q = String(req.query.q || 'Matchbox the Movie').slice(0, 120)
+  const url = `https://uafix.net/index.php?do=search&subaction=search&story=${encodeURIComponent(q)}`
   const out = {}
-  for (const url of targets) {
-    try {
-      const r = await fetch(url, { headers: BROWSER_HEADERS, timeout: 8000 })
-      out[new URL(url).hostname] = { status: r.status, len: (await r.text()).length }
-    } catch (e) {
-      out[new URL(url).hostname] = { error: sanitizeLog(e.message) }
-    }
+  try {
+    const r = await httpGet(url, {
+      allowedHosts: ['uafix.net'],
+      referer: 'https://uafix.net/',
+      timeout: 9000,
+    })
+    const html = await r.text()
+    const $ = cheerio.load(html)
+    const cards = []
+    $('.sres-wrap, article, .short-item').each((i, el) => {
+      const h2 = $(el).find('h2')
+      const a = h2.find('a').length ? h2.find('a') : $(el).find('a').first()
+      cards.push({ h2: h2.text().trim().slice(0, 100), href: a.attr('href') || h2.closest('a').attr('href') || null })
+    })
+    out.fetch = { status: r.status, len: html.length, cards }
+  } catch (e) {
+    out.fetch = { error: sanitizeLog(e.message) }
   }
   res.json(out)
 })
