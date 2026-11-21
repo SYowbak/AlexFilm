@@ -2235,6 +2235,47 @@ if (require.main === module) {
   })
 }
 
+app.get('/api/diag-net', async (req, res) => {
+  const out = {}
+  try {
+    const url = 'https://uafix.net/index.php?do=search&subaction=search&story=Matchbox%20the%20Movie'
+    const r = await httpGet(url, { allowedHosts: ['uafix.net'], referer: 'https://uafix.net/' })
+    const $ = cheerio.load(await r.text())
+    let href = null
+    $('.sres-wrap, article, .short-item').each((i, el) => {
+      if (href) return
+      const h2 = $(el).find('h2')
+      if (!/матчбокс|matchbox/i.test(h2.text())) return
+      href = h2.closest('a').attr('href') || null
+    })
+    out.href = href
+    if (!href) return res.json(out)
+
+    const readPage = async (fetcher, label) => {
+      try {
+        const p = await fetcher(href, { allowedHosts: ['uafix.net'], referer: 'https://uafix.net/' })
+        const h = await p.text()
+        const $$ = cheerio.load(h)
+        return { label, status: p.status, len: h.length, year: extractPageYear(h), iframes: $$('iframe').map((i, el) => $$(el).attr('src') || $$(el).attr('data-src')).get().slice(0, 5) }
+      } catch (e) { return { label, error: sanitizeLog(e.message) } }
+    }
+    out.direct = await readPage(httpGet, 'direct')
+    out.relay = await readPage((u, o) => httpGetViaRelay(u, o), 'relay')
+
+    const iframe = (out.relay.iframes || []).find(s => /zetvideo|ashdi|hdvb/.test(s || ''))
+    out.iframe = iframe || null
+    if (iframe) {
+      const ifrRes = await httpGet(iframe, { allowedHosts: ALLOWED_EMBED_HOSTS, referer: 'https://uafix.net/' })
+      out.iframeDirect = { status: ifrRes.status, hls: extractHlsUrl(await ifrRes.text()) }
+      try {
+        const rel = await httpGetViaRelay(iframe, { referer: 'https://uafix.net/' })
+        out.iframeRelay = { status: rel.status, hls: extractHlsUrl(await rel.text()) }
+      } catch (e) { out.iframeRelay = { error: sanitizeLog(e.message) } }
+    }
+  } catch (e) { out.error = sanitizeLog(e.message) }
+  res.json(out)
+})
+
 // Експорт чистих функцій — для юніт-тестів (сервер не піднімається при require)
 module.exports = {
   app,
