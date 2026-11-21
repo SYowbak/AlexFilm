@@ -2167,6 +2167,24 @@ if (require.main === module) {
   })
 }
 
+app.get('/api/diag-net', async (req, res) => {
+  const targets = [
+    'https://uafix.net/index.php?do=search&subaction=search&story=Matchbox',
+    'https://uaserials.fm/',
+    'https://zetvideo.net/',
+  ]
+  const out = {}
+  for (const url of targets) {
+    try {
+      const r = await fetch(url, { headers: BROWSER_HEADERS, timeout: 8000 })
+      out[new URL(url).hostname] = { status: r.status, len: (await r.text()).length }
+    } catch (e) {
+      out[new URL(url).hostname] = { error: sanitizeLog(e.message) }
+    }
+  }
+  res.json(out)
+})
+
 // Експорт чистих функцій — для юніт-тестів (сервер не піднімається при require)
 module.exports = {
   app,
