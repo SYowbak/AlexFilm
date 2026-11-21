@@ -1,5 +1,16 @@
 ﻿<template>
   <div class="lampa-player-container" ref="containerRef" @mousemove="onActivity" @mouseleave="onMouseLeave" @touchend="onContainerTouchEnd">
+    <!-- Ukrainian dub discovered in the user's browser (server sees a trailer-only page) -->
+    <iframe
+      v-if="uaEmbedUrl"
+      :src="uaEmbedUrl"
+      class="lampa-ua-embed"
+      title="Український дубляж"
+      allow="autoplay; fullscreen; picture-in-picture"
+      allowfullscreen
+      referrerpolicy="no-referrer"
+    ></iframe>
+
     <!-- Відео елемент для нативного HLS відтворення.
          :key — кожна медіа-сесія має свій <video>: старі нативні події
          (error/canplay/playing) приходять уже після перемикання джерела
@@ -56,7 +67,7 @@
       </div>
       <span class="lampa-big-title">Дивитися «{{ title }}»</span>
       <span class="lampa-big-sub">{{ startMetaLine }}</span>
-      <div v-if="uaChecked && !lastUaData" class="ua-fallback" @click.stop>
+      <div v-if="uaChecked && !lastUaData && !uaEmbedUrl" class="ua-fallback" @click.stop>
         <span class="ua-fallback__hint">Або знайдіть дубляж на сайтах:</span>
         <div class="ua-fallback__links">
           <button
@@ -852,6 +863,57 @@ const uaSearchLinks = computed(() => {
 const openUaSearchLink = (url) => {
   window.open(url, '_blank', 'noopener,noreferrer')
 }
+
+// Сервер на Render бачить «легку» версію сторінки UAFLIX (лише трейлер),
+// а браузер користувача — повну. Через CORS-relay (дозволяє *) ми можемо
+// отримати справжнє посилання на плеєр у самому браузері й вбудувати його
+// сюди — без переходу на інший сайт.
+const UA_PAGE_RELAY = 'https://apx.lme.isroot.in/destination/'
+const UA_EMBED_HOST_RE = /^https?:\/\/(?:[\w-]+\.)?(zetvideo\.net|ashdi\.vip|hdvb\.ua|hdvbua\.com)\//i
+const uaEmbedUrl = ref('')
+
+async function tryClientUaDiscovery() {
+  const query = (props.originalTitle || props.title || '').trim()
+  if (!query) return
+  try {
+    const searchUrl = `https://uafix.net/index.php?do=search&subaction=search&story=${encodeURIComponent(query)}`
+    const sRes = await fetch(UA_PAGE_RELAY + encodeURIComponent(searchUrl))
+    if (!sRes.ok) return
+    const sDoc = new DOMParser().parseFromString(await sRes.text(), 'text/html')
+    let filmHref = null
+    sDoc.querySelectorAll('.sres-wrap, article, .short-item').forEach(card => {
+      if (filmHref) return
+      const h2 = card.querySelector('h2')
+      if (!h2) return
+      const link = h2.closest('a')
+      const href = link?.getAttribute('href') || ''
+      if (href.includes('/films/') || href.includes('/serialy/')) filmHref = href
+    })
+    if (!filmHref) return
+
+    const filmUrl = new URL(filmHref, 'https://uafix.net').href
+    const pRes = await fetch(UA_PAGE_RELAY + encodeURIComponent(filmUrl))
+    if (!pRes.ok) return
+    const pDoc = new DOMParser().parseFromString(await pRes.text(), 'text/html')
+    for (const frame of pDoc.querySelectorAll('iframe')) {
+      const src = frame.getAttribute('src') || frame.getAttribute('data-src')
+      if (!src) continue
+      const normalized = src.startsWith('//') ? `https:${src}` : src
+      if (UA_EMBED_HOST_RE.test(normalized)) {
+        uaEmbedUrl.value = normalized
+        return
+      }
+    }
+  } catch (e) {
+    console.warn('[Player] Клієнтський пошук дубляжу недоступний:', sanitizeLog(e?.message || e))
+  }
+}
+
+watch([uaChecked, lastUaData], ([checked, data]) => {
+  if (checked && !data && !uaEmbedUrl.value && !hasStarted.value) {
+    tryClientUaDiscovery()
+  }
+})
 
 // Короткий ряд метаданих у верхній панелі: мова дубляжу без деталей
 // («Українська (Офіційний дубляж)» → «Українська»), повний текст — у title.
@@ -2100,6 +2162,16 @@ onBeforeUnmount(() => {
   height: 100%;
   object-fit: contain;
   background: #000;
+}
+
+.lampa-ua-embed {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #000;
+  z-index: 20;
 }
 
 .lampa-backdrop {
