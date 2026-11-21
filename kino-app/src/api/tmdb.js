@@ -33,9 +33,9 @@ const DEFAULT_SORT = 'primary_release_date.desc'
 
 export const MOOD_CATEGORIES = {
     'Різдвяний': { genres: [], withKeywords: [207317], sortBy: 'popularity.desc' },
-    'Прилюдія': { genres: [], withKeywords: [256466], includeAdult: true, sortBy: 'popularity.desc' },
-    'Хочу посміятися': { genres: [35], keywords: 'comedy,funny,humor' },
-    'Для вечора з коханою людиною': { genres: [10749], keywords: 'romance,love,relationship' },
+    'Прилюдія': { genres: [], withKeywords: [256466, 170827, 156777, 267122], includeAdult: true, sortBy: 'popularity.desc' },
+    'Убойні комедії': { genres: [35], withKeywords: [383021, 10123], sortBy: 'primary_release_date.desc' },
+    'З половникою': { genres: [10749], keywords: 'romance,love,relationship' },
     'Щоб думати': { genres: [18, 9648], keywords: 'philosophy,psychological,thought-provoking' },
     'Адреналін': { genres: [28, 53], keywords: 'action,thriller,intense' },
     'Ностальгія': { genres: [], keywords: 'classic,retro,vintage', yearMax: 2000 },
@@ -120,7 +120,7 @@ export const tmdbApi = {
         }
         
         if (category.withKeywords?.length) {
-            params.append('with_keywords', category.withKeywords.join(','))
+            params.append('with_keywords', category.withKeywords.join('|'))
         }
         
         if (category.yearMax) {
@@ -150,7 +150,7 @@ export const tmdbApi = {
             params.append('vote_average.gte', filters.rating)
         }
         if (filters.withKeywords?.length) {
-            params.append('with_keywords', filters.withKeywords.join(','))
+            params.append('with_keywords', filters.withKeywords.join('|'))
         }
         
         if (filters.genre) {
