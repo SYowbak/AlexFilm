@@ -122,7 +122,7 @@ const TMDB_ALLOWED_PATHS = [
 ]
 // Дозволені query-параметри TMDB (все інше — зокрема session_id — відсікаємо).
 const TMDB_ALLOWED_QUERY_KEYS = new Set([
-  'language', 'page', 'query', 'sort_by', 'with_genres', 'with_original_language',
+  'language', 'page', 'query', 'sort_by', 'with_genres', 'with_keywords', 'with_original_language',
   'vote_average.gte', 'vote_count.gte', 'primary_release_date.gte',
   'primary_release_date.lte', 'primary_release_year', 'include_adult',
   'include_video', 'region', 'year',

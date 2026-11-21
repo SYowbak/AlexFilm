@@ -5,9 +5,6 @@
       <div>
         <p class="eyebrow">ІНТЕРАКТИВНЕ ДОСЛІДЖЕННЯ</p>
         <h1>Нічого дивитися?</h1>
-        <p class="muted">
-          Величезна галактика кіно. Водіть курсором — лінза фокусується на фільмі під мишею. Клікніть, щоб переглянути деталі та трейлер.
-        </p>
       </div>
       <div class="toolbar-actions">
         <!-- Genre Dropdown Select -->
@@ -32,10 +29,10 @@
           <select
             id="movie-limit"
             class="genre-dropdown"
-            :value="currentLimit"
+            :value="performanceLevel"
             @change="onLimitChange"
           >
-            <option v-for="opt in LIMIT_OPTIONS" :key="opt" :value="opt">{{ opt }}</option>
+            <option v-for="opt in LIMIT_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
           </select>
         </label>
 
@@ -63,7 +60,7 @@
       @mouseleave="onMouseLeave"
       @mouseenter="onMouseEnter"
       @touchstart.passive="onTouchStart"
-      @touchmove="onTouchMove"
+      @touchmove.prevent="onTouchMove"
       @touchend="onTouchEnd"
       @wheel.prevent="onWheel"
     >
@@ -230,20 +227,21 @@
         </div>
       </Transition>
 
-      <!-- Bottom Hint -->
+      <!-- Bottom bar: film count + professional pager -->
       <div class="stage-hint-bar">
-        <span>Водіть мишею по мозаїці · Клікніть постер для перегляду</span>
-        <button
-          class="stage-stat-btn"
-          @click="refreshMovies"
-          @mousedown.stop
-          @mouseup.stop
-          @touchstart.stop
-          @touchend.stop
-          title="Клікніть, щоб оновити фільми"
-        >
-          {{ movies.length }} фільмів · оновити
-        </button>
+        <span class="stage-count">{{ movies.length }} фільмів</span>
+        <nav class="stage-pager" v-if="totalBatches > 1" aria-label="Сторінки добірки" @click.stop @mousedown.stop @touchstart.stop>
+          <button
+            v-for="item in pagerItems"
+            :key="item.key"
+            type="button"
+            class="pager-item"
+            :class="{ 'pager-item--current': item.page === currentBatch, 'pager-item--gap': item.gap }"
+            :disabled="item.gap || item.page === currentBatch"
+            :title="item.gap ? undefined : `Сторінка ${item.page}`"
+            @click="goToBatch(item.page)"
+          >{{ item.label }}</button>
+        </nav>
       </div>
     </div>
   </section>
@@ -286,12 +284,19 @@ const MAX_MAGNIFICATION = 5.0 // Smooth scaling
 const GRID_COLS = 26
 const GRID_ROWS = 18
 
+// Мозаїка має 26 × 18 = 468 комірок. «Декілька» — третина, «Багато» —
+// повний набір, «Всі» — усі сторінки TMDB для обраного жанру.
 const LEVELS = {
-  economy: { name: 'Економ', movies: 60, fps: 24, dpr: 1, effects: false, cache: 60 },
-  normal: { name: 'Норма', movies: 300, fps: 30, dpr: 1, effects: false, cache: 300 },
-  max: { name: 'Макс', movies: 1000, fps: 60, dpr: 2, effects: true, cache: 600 }
+  economy: { name: 'Декілька', movies: 150, fps: 24, dpr: 1, effects: false, cache: 150 },
+  normal: { name: 'Багато', movies: 500, fps: 30, dpr: 1, effects: false, cache: 400 },
+  max: { name: 'Всі', movies: Infinity, fps: 60, dpr: 2, effects: true, cache: 600 }
 }
-const LIMIT_OPTIONS = [60, 300, 1000]
+const LIMIT_OPTIONS = [
+  { value: 'economy', label: 'Декілька' },
+  { value: 'normal', label: 'Багато' },
+  { value: 'max', label: 'Всі' }
+]
+const PAGES_PER_BATCH = 4
 
 const ua = typeof navigator !== 'undefined' ? navigator.userAgent.toLowerCase() : ''
 const isTvDevice = /tv|smarttv|vidaa|tizen|webos|netcast|viera|bravia|hisense|roku|aftb|appletv|crkey|hbbtv|box|odin|opera\s*tv/i.test(ua) ||
@@ -308,18 +313,44 @@ function detectLevel() {
 const storedLevel = typeof localStorage !== 'undefined' ? localStorage.getItem('alexfilm_explore_level') : null
 const performanceLevel = ref(LEVELS[storedLevel] ? storedLevel : detectLevel())
 const level = computed(() => LEVELS[performanceLevel.value])
-const currentLimit = computed(() => level.value.movies)
+
+// Пагінація добірок: одна «сторінка» = 4 сторінки TMDB.
+const currentBatch = ref(1)
+const totalBatches = ref(1)
+
+const pagerItems = computed(() => {
+  const total = totalBatches.value
+  const cur = Math.min(Math.max(1, currentBatch.value), total)
+  const items = []
+  const push = (page, gap = false) => items.push({ key: gap ? `gap-${items.length}` : page, page, label: gap ? '…' : String(page), gap })
+
+  push(1)
+  const from = Math.max(2, cur - 2)
+  const to = Math.min(total - 1, cur + 2)
+  if (from > 2) push(0, true)
+  for (let p = from; p <= to; p++) push(p)
+  if (to < total - 1) push(0, true)
+  if (total > 1) push(total)
+  return items
+})
+
+function goToBatch(page) {
+  const target = Math.min(Math.max(1, Number(page) || 1), totalBatches.value)
+  if (target === currentBatch.value && movies.value.length) return
+  currentBatch.value = target
+  const offset = (target - 1) * PAGES_PER_BATCH + 1
+  loadMovies(offset, selectedGenreId.value)
+}
 
 const onLimitChange = (e) => {
-  const count = Number(e.target.value)
-  const next = Object.keys(LEVELS).find(key => LEVELS[key].movies === count)
-  if (!next || next === performanceLevel.value) return
+  const next = e.target.value
+  if (!LEVELS[next] || next === performanceLevel.value) return
   performanceLevel.value = next
   try {
     localStorage.setItem('alexfilm_explore_level', next)
   } catch (_) {}
   handleResize()
-  currentOffsetPage = 1
+  currentBatch.value = 1
   loadMovies(1, selectedGenreId.value)
 }
 
@@ -1028,8 +1059,6 @@ function handleResize() {
 }
 
 // Progressive streaming fetch from center outwards
-let currentOffsetPage = 1
-
 async function fetchMoviesPage(p, genreId) {
   // TMDB-ключ НЕ в клієнті: запит іде через локальний proxy, який додає
   // api_key на сервері. Інакше ключ потрапляє в бандл і його можна
@@ -1043,11 +1072,14 @@ async function fetchMoviesPage(p, genreId) {
   const url = `${getApiOrigin()}/api/tmdb/discover/movie?${params.toString()}`
   try {
     const res = await fetch(url)
-    if (!res.ok) return []
+    if (!res.ok) return { results: [], totalPages: 0 }
     const data = await res.json()
-    return (data.results || []).filter(m => m && m.poster_path)
+    return {
+      results: (data.results || []).filter(m => m && m.poster_path),
+      totalPages: Number(data.total_pages) || 0,
+    }
   } catch {
-    return []
+    return { results: [], totalPages: 0 }
   }
 }
 
@@ -1067,18 +1099,29 @@ async function loadMovies(offset = 1, genreId = selectedGenreId.value) {
   const unique = []
   let page = offset
   let emptyPages = 0
+  let pagesAvailable = 0
 
   try {
-    while (unique.length < target && emptyPages < 2) {
+    while (unique.length < target && emptyPages < 2 && (!pagesAvailable || page <= pagesAvailable)) {
       const batch = []
-      for (let i = 0; i < 4; i++) batch.push(page++)
-      const results = await Promise.all(batch.map(p => fetchMoviesPage(p, genreId)))
+      for (let i = 0; i < PAGES_PER_BATCH && (!pagesAvailable || page + i <= pagesAvailable); i++) batch.push(page + i)
+      if (!batch.length) break
+      page += batch.length
+
+      const responses = await Promise.all(batch.map(p => fetchMoviesPage(p, genreId)))
       if (token !== loadToken) return
 
+      for (const resp of responses) {
+        if (resp.totalPages > pagesAvailable) {
+          pagesAvailable = resp.totalPages
+          totalBatches.value = Math.max(1, Math.ceil(pagesAvailable / PAGES_PER_BATCH))
+        }
+      }
+
       let added = 0
-      for (const list of results) {
-        if (!list.length) emptyPages++
-        for (const m of list) {
+      for (const resp of responses) {
+        if (!resp.results.length) emptyPages++
+        for (const m of resp.results) {
           if (!seen.has(m.id)) {
             seen.add(m.id)
             unique.push(m)
@@ -1091,7 +1134,7 @@ async function loadMovies(offset = 1, genreId = selectedGenreId.value) {
         movies.value = unique.slice(0, target)
         loading.value = false
       }
-      if (!added || !results.some(r => r.length)) break
+      if (!added || !responses.some(r => r.results.length)) break
       await new Promise(r => setTimeout(r, 40))
     }
 
@@ -1111,7 +1154,8 @@ function selectGenre(id) {
   if (selectedGenreId.value === id) return
   selectedGenreId.value = id
   closeDetails()
-  currentOffsetPage = 1
+  currentBatch.value = 1
+  totalBatches.value = 1
   loadMovies(1, id)
 }
 
@@ -1121,8 +1165,9 @@ function onGenreSelectChange(e) {
 }
 
 function refreshMovies() {
-  currentOffsetPage = (currentOffsetPage % 30) + 15
-  loadMovies(currentOffsetPage, selectedGenreId.value)
+  const next = currentBatch.value >= totalBatches.value ? 1 : currentBatch.value + 1
+  currentBatch.value = next
+  loadMovies((next - 1) * PAGES_PER_BATCH + 1, selectedGenreId.value)
 }
 
 async function loadGenres() {
@@ -1288,14 +1333,6 @@ h1 {
   letter-spacing: -0.02em;
 }
 
-.muted {
-  color: #94a3b8;
-  margin: 0;
-  max-width: 600px;
-  font-size: 0.95rem;
-  line-height: 1.5;
-}
-
 .toolbar-actions {
   display: flex;
   align-items: center;
@@ -1320,6 +1357,8 @@ h1 {
   position: relative;
   height: min(80vh, 840px);
   min-height: 540px;
+  touch-action: none;
+  overscroll-behavior: contain;
   overflow: hidden;
   border-radius: 1.25rem;
   background: radial-gradient(ellipse at 50% 50%, #0d1527 0%, #030611 90%);
@@ -1755,4 +1794,115 @@ canvas {
     padding: 1.25rem;
   }
 }
-</style>
+.stage-count {
+  white-space: nowrap;
+}
+
+.film-details-panel {
+  touch-action: pan-y;
+}
+
+/* Professional pager: first / last page always visible, compact window */
+.stage-pager {
+  display: flex;
+  align-items: center;
+  gap: 0.22rem;
+  pointer-events: auto;
+  background: rgba(15, 23, 42, 0.86);
+  border: 1px solid rgba(255, 204, 0, 0.22);
+  border-radius: 999px;
+  padding: 0.22rem 0.3rem;
+  backdrop-filter: blur(8px);
+}
+.pager-item {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #cbd5e1;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+}
+.pager-item:hover:not(:disabled):not(.pager-item--gap) {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+.pager-item--current {
+  background: #ffcc00 !important;
+  color: #020617 !important;
+  box-shadow: 0 0 12px rgba(255, 204, 0, 0.45);
+}
+.pager-item--gap {
+  cursor: default;
+  color: #64748b;
+  letter-spacing: -0.08em;
+}
+.pager-item:focus-visible {
+  outline: 2px solid #ffcc00;
+  outline-offset: 1px;
+}
+
+/* Phone: keep the whole board in the viewport and stop page scroll on drag */
+@media (max-width: 768px) {
+  .explore-page {
+    height: auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 0.6rem 0.65rem 0.65rem;
+    gap: 0.55rem;
+    overflow: hidden;
+  }
+  .explore-toolbar {
+    flex: 0 0 auto;
+    display: block;
+    margin: 0;
+  }
+  .explore-toolbar .eyebrow { display: none; }
+  .explore-toolbar h1 {
+    font-size: 1.25rem;
+    line-height: 1.1;
+    margin: 0 0 0.5rem;
+  }
+  .toolbar-actions {
+    margin-top: 0;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+  }
+  .explore-limit {
+    flex: 0 0 auto;
+  }
+  .explore-action-btn {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0.45rem 0.5rem;
+    font-size: 0.78rem;
+  }
+  .explore-stage {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
+    border-radius: 0.9rem;
+  }
+  .stage-hint-bar {
+    left: 0.6rem;
+    right: 0.6rem;
+    bottom: 0.55rem;
+    gap: 0.35rem;
+    font-size: 0.68rem;
+  }
+  .pager-item {
+    min-width: 24px;
+    height: 24px;
+    padding: 0 0.3rem;
+    font-size: 0.68rem;
+  }
+}</style>

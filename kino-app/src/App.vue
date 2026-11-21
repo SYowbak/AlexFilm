@@ -1,5 +1,8 @@
 <template>
-  <div class="min-h-screen bg-slate-950 text-gray-100 flex flex-col font-sans selection:bg-neon/30">
+  <div
+    class="min-h-screen bg-slate-950 text-gray-100 flex flex-col font-sans selection:bg-neon/30"
+    :class="{ 'explore-shell': isExploreRoute }"
+  >
     <header class="border-b border-gray-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-40 shadow-sm">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
         <router-link to="/" class="flex items-center gap-2 group">
@@ -52,13 +55,16 @@
 </template>
 
 <script setup>
-import { watch, onMounted } from 'vue'
+import { computed, watch, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import { useFavoritesStore } from './stores/favorites'
 import AppToast from './components/AppToast.vue'
 
 const authStore = useAuthStore()
 const favoritesStore = useFavoritesStore()
+const route = useRoute()
+const isExploreRoute = computed(() => route.path.startsWith('/explore'))
 
 // Список улюблених прив'язаний до акаунта: перемикаємо його при вході/виході
 watch(

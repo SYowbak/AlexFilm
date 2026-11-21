@@ -16,19 +16,19 @@
     </div>
 
     <!-- Список категорій -->
-    <div class="flex flex-wrap gap-2 sm:gap-3 justify-center sm:justify-start pb-4 notranslate" translate="no">
+    <div class="mood-grid notranslate" translate="no">
       <button
         v-for="category in categories"
         :key="category"
         @click="$emit('select', category)"
-        class="px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 border backdrop-blur-sm notranslate inline-flex items-center justify-center text-center select-none"
-        :class="[
-          selectedCategory === category 
-            ? 'bg-amber-500 text-slate-950 font-bold border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.6)] scale-105' 
-            : 'bg-slate-800 text-slate-200 border-slate-700 hover:border-slate-500 hover:bg-slate-700 hover:text-white'
-        ]"
+        class="mood-chip"
+        :class="{
+          'mood-chip--active': selectedCategory === category,
+          'mood-chip--festive': category === 'Різдвяний'
+        }"
+        :aria-pressed="selectedCategory === category"
       >
-        <span class="notranslate leading-normal" translate="no">{{ category }}</span>
+        <span class="notranslate" translate="no">{{ category }}</span>
       </button>
     </div>
 
@@ -59,3 +59,65 @@ defineEmits(['select', 'random'])
 
 const categories = Object.keys(MOOD_CATEGORIES)
 </script>
+
+<style scoped>
+.mood-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.55rem;
+  padding-bottom: 0.5rem;
+}
+.mood-chip {
+  min-height: 42px;
+  padding: 0.55rem 0.9rem;
+  border-radius: 0.75rem;
+  border: 1px solid #334155;
+  background: rgba(30, 41, 59, 0.72);
+  color: #e2e8f0;
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.25;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+}
+.mood-chip:hover {
+  background: rgba(51, 65, 85, 0.9);
+  border-color: #64748b;
+  color: #fff;
+  transform: translateY(-1px);
+}
+.mood-chip--active {
+  background: #f59e0b;
+  border-color: #f59e0b;
+  color: #020617;
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.35);
+}
+.mood-chip--active.mood-chip--festive {
+  background: linear-gradient(135deg, #16a34a, #dc2626);
+  border-color: #facc15;
+  color: #fff;
+  box-shadow: 0 0 16px rgba(220, 38, 38, 0.4);
+}
+.mood-chip--festive:not(.mood-chip--active) {
+  border-color: rgba(74, 222, 128, 0.45);
+  background: rgba(20, 83, 45, 0.35);
+}
+.mood-chip:focus-visible {
+  outline: 2px solid #ffcc00;
+  outline-offset: 2px;
+}
+@media (max-width: 480px) {
+  .mood-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.4rem;
+  }
+  .mood-chip {
+    font-size: 0.78rem;
+    padding: 0.5rem 0.55rem;
+  }
+}
+</style>

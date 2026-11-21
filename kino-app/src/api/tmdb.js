@@ -30,6 +30,7 @@ const fetchWithTimeout = async (url, options = {}, timeout = 8000) => {
 
 // Категорії настрою з відповідними жанрами та ключовими словами
 export const MOOD_CATEGORIES = {
+    'Різдвяний': { genres: [], withKeywords: [207317], sortBy: 'popularity.desc' },
     'Хочу посміятися': { genres: [35], keywords: 'comedy,funny,humor' },
     'Для вечора з коханою людиною': { genres: [10749], keywords: 'romance,love,relationship' },
     'Щоб думати': { genres: [18, 9648], keywords: 'philosophy,psychological,thought-provoking' },
@@ -110,6 +111,10 @@ export const tmdbApi = {
         
         if (category.genres.length > 0) {
             params.append('with_genres', category.genres.join(','))
+        }
+        
+        if (category.withKeywords?.length) {
+            params.append('with_keywords', category.withKeywords.join(','))
         }
         
         if (category.yearMax) {
