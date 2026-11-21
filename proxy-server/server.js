@@ -613,6 +613,25 @@ async function httpGet(url, { allowedHosts, headers, timeout = 9000, referer, ma
  * Раніше перші два випадки з першою формою знаходились, а «без лапок» —
  * ні, тому потік мовчки не знаходився і користувач бачив аварійний iframe.
  */
+// UAFLIX (і деякі інші DLE-сайти) віддають IP-залежний HTML: з дата-центру
+// сервер показує сторінку лише з YouTube-трейлером, а не з плеєром. Публічний
+// relay бачить повну версію — використовуємо його ТІЛЬКИ як другий шанс
+// для сторінки фільму (відео й надалі йде через наш /api/hls).
+const CORS_RELAY_ORIGIN = (process.env.UA_PAGE_RELAY || 'https://apx.lme.isroot.in/destination/').replace(/\/+$/, '') + '/'
+
+async function httpGetViaRelay(url, { headers, timeout = 9000 } = {}) {
+  const target = new URL(url)
+  if (!safeTransport(target)) throw new Error('Недозволена схема запиту до relay')
+  const abortSignal = requestContext.getStore() && requestContext.getStore().signal
+  return fetch(CORS_RELAY_ORIGIN + encodeURIComponent(target.href), {
+    headers: { ...BROWSER_HEADERS, ...(headers || {}) },
+    timeout,
+    redirect: 'manual',
+    size: MAX_RESPONSE_BYTES,
+    ...(abortSignal ? { signal: abortSignal } : {}),
+  })
+}
+
 function extractHlsUrl(text, allowedHosts = ALLOWED_EMBED_HOSTS) {
   if (!text) return null
   const slice = text.slice(0, MAX_SCAN_BYTES)
@@ -1372,8 +1391,8 @@ async function searchUafix(title, origTitle, year, mediaType) {
         })
 
         if (!pRes.ok) continue
-        const pHtml = await pRes.text()
-        const $p = cheerio.load(pHtml)
+        let pHtml = await pRes.text()
+        let $p = cheerio.load(pHtml)
 
         // ─── ЖОРСТКА ВЕРИФІКАЦІЯ IDENTITY ───
         const pageYear = extractPageYear(pHtml)
@@ -1383,19 +1402,42 @@ async function searchUafix(title, origTitle, year, mediaType) {
         }
         if (!isSameMediaType(match.href, mediaType)) continue
 
-        let iframeUrl = null
-        $p('iframe').each((i, el) => {
-          const src = $p(el).attr('src') || $p(el).attr('data-src')
-          if (!src) return
-          const normalized = src.startsWith('//') ? 'https:' + src : src
-          // Тільки з allow-list доменів плеєрів — інакше це SSRF
-          const safe = safeEmbedUrl(normalized, ALLOWED_EMBED_HOSTS)
-          if (!safe) return
-          // Пропускаємо YouTube-трейлери
-          if (safe.includes('youtube.com') || safe.includes('youtu.be')) return
-          iframeUrl = safe
-          return false
-        })
+        const collectIframe = () => {
+          let found = null
+          $p('iframe').each((i, el) => {
+            const src = $p(el).attr('src') || $p(el).attr('data-src')
+            if (!src) return
+            const normalized = src.startsWith('//') ? 'https:' + src : src
+            // Тільки з allow-list доменів плеєрів — інакше це SSRF
+            const safe = safeEmbedUrl(normalized, ALLOWED_EMBED_HOSTS)
+            if (!safe) return
+            // Пропускаємо YouTube-трейлери
+            if (safe.includes('youtube.com') || safe.includes('youtu.be')) return
+            found = safe
+            return false
+          })
+          return found
+        }
+
+        let iframeUrl = collectIframe()
+        if (!iframeUrl) {
+          // Прямий запит із хостингу може повернути «легку» сторінку лише з
+          // трейлером. Пробуємо той самий URL через relay (перевіряємо рік,
+          // щоб не підмінити інший реліз).
+          try {
+            const relayRes = await httpGetViaRelay(pageUrl, { referer: 'https://uafix.net/' })
+            if (relayRes.ok) {
+              const relayHtml = await relayRes.text()
+              if (isSameRelease(extractPageYear(relayHtml), targetYr)) {
+                pHtml = relayHtml
+                $p = cheerio.load(pHtml)
+                iframeUrl = collectIframe()
+              }
+            }
+          } catch (e) {
+            console.warn('[UAFLIX] relay недоступний:', sanitizeLog(e.message))
+          }
+        }
 
         if (iframeUrl) {
           let hlsUrl = null
@@ -2166,38 +2208,6 @@ if (require.main === module) {
     process.exit(1)
   })
 }
-
-app.get('/api/diag-net', async (req, res) => {
-  const q = String(req.query.q || 'Matchbox the Movie').slice(0, 120)
-  const url = `https://uafix.net/index.php?do=search&subaction=search&story=${encodeURIComponent(q)}`
-  const out = {}
-  try {
-    const r = await httpGet(url, { allowedHosts: ['uafix.net'], referer: 'https://uafix.net/', timeout: 9000 })
-    const $ = cheerio.load(await r.text())
-    let href = null
-    $('.sres-wrap, article, .short-item').each((i, el) => {
-      if (href) return
-      const h2 = $(el).find('h2')
-      if (!/матчбокс|matchbox/i.test(h2.text())) return
-      href = h2.closest('a').attr('href') || null
-    })
-    out.searchHref = href
-    if (href) {
-      const p = await httpGet(href, { allowedHosts: ['uafix.net'], referer: 'https://uafix.net/', timeout: 9000 })
-      const ph = await p.text()
-      const $$ = cheerio.load(ph)
-      out.page = {
-        status: p.status,
-        len: ph.length,
-        year: extractPageYear(ph),
-        iframes: $$('iframe').map((i, el) => $$(el).attr('src') || $$(el).attr('data-src')).get().slice(0, 6),
-      }
-    }
-  } catch (e) {
-    out.error = sanitizeLog(e.message)
-  }
-  res.json(out)
-})
 
 // Експорт чистих функцій — для юніт-тестів (сервер не піднімається при require)
 module.exports = {
