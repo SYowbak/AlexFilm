@@ -104,8 +104,12 @@ const loadMovies = async (page = 1) => {
              currentFilters.genre = moodData.genres
            }
            if (!currentFilters.year && moodData.yearMax) {
-              currentFilters.year = 'older' 
+              currentFilters.year = 'older'
            }
+           if (!currentFilters.withKeywords?.length && moodData.withKeywords?.length) {
+             currentFilters.withKeywords = moodData.withKeywords
+           }
+           if (moodData.includeAdult) currentFilters.includeAdult = true
         }
       }
       
@@ -163,7 +167,9 @@ const handleClearSearch = () => {
 const handleAdvancedFilter = (filters) => {
   const hasActiveFilters = filters.genre !== '' || filters.year !== '' || filters.rating !== '6' || filters.sortBy !== 'primary_release_date.desc'
   
-  if (hasActiveFilters || filterMode.value) {
+  // Якщо обрано настрій, будь-яка зміна розширеного пошуку (навіть сортування)
+  // застосовується поверх настрою, а не скидає його.
+  if (hasActiveFilters || filterMode.value || selectedCategory.value) {
     activeFilters.value = filters
     filterMode.value = true
     searchMode.value = false

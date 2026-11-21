@@ -33,7 +33,7 @@ const DEFAULT_SORT = 'primary_release_date.desc'
 
 export const MOOD_CATEGORIES = {
     'Різдвяний': { genres: [], withKeywords: [207317], sortBy: 'popularity.desc' },
-    'Для дорослих (18+)': { genres: [], withKeywords: [256466], includeAdult: true, sortBy: 'popularity.desc' },
+    'Прилюдія': { genres: [], withKeywords: [256466], includeAdult: true, sortBy: 'popularity.desc' },
     'Хочу посміятися': { genres: [35], keywords: 'comedy,funny,humor' },
     'Для вечора з коханою людиною': { genres: [10749], keywords: 'romance,love,relationship' },
     'Щоб думати': { genres: [18, 9648], keywords: 'philosophy,psychological,thought-provoking' },
@@ -137,9 +137,21 @@ export const tmdbApi = {
         const params = new URLSearchParams({
             language: 'uk-UA',
             page: page.toString(),
-            sort_by: filters.sortBy || DEFAULT_SORT,
-            'vote_count.gte': '50'
+            sort_by: filters.sortBy || DEFAULT_SORT
         })
+        if (filters.includeAdult) {
+            params.append('include_adult', 'true')
+        } else {
+            params.append('vote_count.gte', '50')
+        }
+        if (filters.includeAdult && filters.rating === '6') {
+            // Поріг 6 — дефолт фільтра, а не вибір користувача
+        } else if (filters.rating) {
+            params.append('vote_average.gte', filters.rating)
+        }
+        if (filters.withKeywords?.length) {
+            params.append('with_keywords', filters.withKeywords.join(','))
+        }
         
         if (filters.genre) {
             if (Array.isArray(filters.genre)) {
@@ -149,10 +161,6 @@ export const tmdbApi = {
             } else {
                 params.append('with_genres', filters.genre)
             }
-        }
-        
-        if (filters.rating) {
-            params.append('vote_average.gte', filters.rating)
         }
         
         if (filters.year) {
