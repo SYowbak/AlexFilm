@@ -68,6 +68,13 @@
       <span class="lampa-big-title">Дивитися «{{ title }}»</span>
       <span class="lampa-big-sub">{{ startMetaLine }}</span>
       <div v-if="uaChecked && !lastUaData && !uaEmbedUrl" class="ua-fallback" @click.stop>
+        <button
+          v-if="!uaSearching"
+          type="button"
+          class="ua-fallback__link ua-fallback__retry"
+          @click="tryClientUaDiscovery"
+        >Знайти дубляж тут</button>
+        <span v-else class="ua-fallback__hint">Шукаємо дубляж…</span>
         <span class="ua-fallback__hint">Або знайдіть дубляж на сайтах:</span>
         <div class="ua-fallback__links">
           <button
@@ -842,6 +849,7 @@ const availableSources = computed(() => {
 })
 
 const currentSourceLabel = computed(() => {
+  if (uaEmbedUrl.value) return 'Український дубляж'
   const src = availableSources.value.find(s => s.id === currentSource.value)
   if (!src) return 'UA Дубляж'
   return src.label
@@ -868,57 +876,73 @@ const openUaSearchLink = (url) => {
 // а браузер користувача — повну. Через CORS-relay (дозволяє *) ми можемо
 // отримати справжнє посилання на плеєр у самому браузері й вбудувати його
 // сюди — без переходу на інший сайт.
-const UA_PAGE_RELAY = 'https://apx.lme.isroot.in/destination/'
+const UA_RELAYS = [
+  'https://apx.lme.isroot.in/destination/',
+  'https://api.allorigins.win/raw?url=',
+]
 const UA_EMBED_HOST_RE = /^https?:\/\/(?:[\w-]+\.)?(zetvideo\.net|ashdi\.vip|hdvb\.ua|hdvbua\.com)\//i
 const uaEmbedUrl = ref('')
+const uaSearching = ref(false)
+
+const fetchViaRelay = (relay, url) => fetch(relay + encodeURIComponent(url))
+
+const extractEmbedUrl = (html) => {
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  const candidates = []
+  for (const frame of doc.querySelectorAll('iframe')) {
+    candidates.push(frame.getAttribute('src') || frame.getAttribute('data-src') || '')
+  }
+  // UAFLIX кладе плеєр у <meta property="og:video:iframe"> замість
+  // живого <iframe> — звичайний DOMParser тут нічого не знайде.
+  const meta = doc.querySelector('meta[property="og:video:iframe"]')?.getAttribute('content') || ''
+  const metaSrc = meta.match(/src=["']([^"']+)["']/i)
+  if (metaSrc) candidates.push(metaSrc[1])
+  for (const src of candidates) {
+    if (!src) continue
+    const normalized = src.startsWith('//') ? `https:${src}` : src
+    if (UA_EMBED_HOST_RE.test(normalized)) return normalized
+  }
+  return null
+}
 
 async function tryClientUaDiscovery() {
+  if (uaSearching.value || uaEmbedUrl.value) return
   const query = (props.originalTitle || props.title || '').trim()
   if (!query) return
+  uaSearching.value = true
   try {
-    const searchUrl = new URL(`https://uafix.net/index.php?do=search&subaction=search&story=${encodeURIComponent(query)}`)
-    searchUrl.searchParams.set('cb', String(Date.now()))
-    const sRes = await fetch(UA_PAGE_RELAY + encodeURIComponent(searchUrl.href))
-    if (!sRes.ok) return
-    const sDoc = new DOMParser().parseFromString(await sRes.text(), 'text/html')
-    let filmHref = null
-    sDoc.querySelectorAll('.sres-wrap, article, .short-item').forEach(card => {
-      if (filmHref) return
-      const h2 = card.querySelector('h2')
-      if (!h2) return
-      const href = h2.closest('a')?.getAttribute('href') || ''
-      if (href.includes('/films/') || href.includes('/serialy/')) filmHref = href
-    })
-    if (!filmHref) return
+    for (const relay of UA_RELAYS) {
+      try {
+        const searchUrl = new URL(`https://uafix.net/index.php?do=search&subaction=search&story=${encodeURIComponent(query)}`)
+        searchUrl.searchParams.set('cb', String(Date.now()))
+        const sRes = await fetchViaRelay(relay, searchUrl.href)
+        if (!sRes.ok) continue
+        const sDoc = new DOMParser().parseFromString(await sRes.text(), 'text/html')
+        let filmHref = null
+        sDoc.querySelectorAll('.sres-wrap, article, .short-item').forEach(card => {
+          if (filmHref) return
+          const href = card.querySelector('h2')?.closest('a')?.getAttribute('href') || ''
+          if (href.includes('/films/') || href.includes('/serialy/')) filmHref = href
+        })
+        if (!filmHref) continue
 
-    const filmPage = new URL(filmHref, 'https://uafix.net')
-    for (let attempt = 0; attempt < 3; attempt++) {
-      filmPage.searchParams.set('cb', String(Date.now() + attempt))
-      const pRes = await fetch(UA_PAGE_RELAY + encodeURIComponent(filmPage.href))
-      if (!pRes.ok) continue
-      const pDoc = new DOMParser().parseFromString(await pRes.text(), 'text/html')
-
-      const candidates = []
-      for (const frame of pDoc.querySelectorAll('iframe')) {
-        candidates.push(frame.getAttribute('src') || frame.getAttribute('data-src') || '')
-      }
-      // UAFLIX кладе плеєр у <meta property="og:video:iframe"> замість
-      // живого <iframe> — звичайний DOMParser тут нічого не знайде.
-      const metaContent = pDoc.querySelector('meta[property="og:video:iframe"]')?.getAttribute('content') || ''
-      const metaSrc = metaContent.match(/src=["']([^"']+)["']/i)
-      if (metaSrc) candidates.push(metaSrc[1])
-
-      for (const src of candidates) {
-        if (!src) continue
-        const normalized = src.startsWith('//') ? `https:${src}` : src
-        if (UA_EMBED_HOST_RE.test(normalized)) {
-          uaEmbedUrl.value = normalized
-          return
+        const filmPage = new URL(filmHref, 'https://uafix.net')
+        for (let attempt = 0; attempt < 3; attempt++) {
+          filmPage.searchParams.set('cb', String(Date.now() + attempt))
+          const pRes = await fetchViaRelay(relay, filmPage.href)
+          if (!pRes.ok) continue
+          const found = extractEmbedUrl(await pRes.text())
+          if (found) {
+            uaEmbedUrl.value = found
+            return
+          }
         }
+      } catch (e) {
+        console.warn('[Player] UA-релей недоступний:', sanitizeLog(e?.message || e))
       }
     }
-  } catch (e) {
-    console.warn('[Player] Клієнтський пошук дубляжу недоступний:', sanitizeLog(e?.message || e))
+  } finally {
+    uaSearching.value = false
   }
 }
 
@@ -1685,6 +1709,11 @@ const retryUaSearch = async () => {
   lastUaData.value = null
   loaderText.value = 'Повторний пошук українського дубляжу...'
   await checkUaStream(true)
+  // Серверний пошук із IP хостингу часто вертає «не знайдено». Паралельно
+  // пробуємо знайти плеєр у браузері й вбудувати його на сайт.
+  if (!lastUaData.value && !uaEmbedUrl.value) {
+    tryClientUaDiscovery()
+  }
 }
 
 const startPlayback = () => {
@@ -2400,6 +2429,10 @@ onBeforeUnmount(() => {
 .ua-fallback__link:hover,
 .ua-fallback__link:focus-visible {
   background: rgba(255, 204, 0, 0.2);
+}
+.ua-fallback__retry {
+  background: rgba(255, 204, 0, 0.18);
+  border-color: #ffcc00;
 }
 
 /* ================= LAMPA PLAYER INFO (TOP) ================= */
