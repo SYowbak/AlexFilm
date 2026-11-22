@@ -30,6 +30,7 @@ const fetchWithTimeout = async (url, options = {}, timeout = 8000) => {
 
 // Категорії настрою з відповідними жанрами та ключовими словами
 const DEFAULT_SORT = 'primary_release_date.desc'
+const today = () => new Date().toISOString().slice(0, 10)
 
 export const MOOD_CATEGORIES = {
     'Різдвяний': { genres: [], withKeywords: [207317], sortBy: 'popularity.desc' },
@@ -126,6 +127,9 @@ export const tmdbApi = {
         if (category.yearMax) {
             params.append('primary_release_date.lte', `${category.yearMax}-12-31`)
         }
+        if (!params.has('primary_release_date.lte')) {
+            params.append('primary_release_date.lte', today())
+        }
         
         const response = await fetchWithTimeout(`${BASE_URL}/discover/movie?${params}`, { headers })
         if (!response.ok) throw new Error(`TMDB API error: ${response.status}`)
@@ -175,6 +179,9 @@ export const tmdbApi = {
             } else {
                 params.append('primary_release_year', filters.year)
             }
+        }
+        if (!params.has('primary_release_date.lte')) {
+            params.append('primary_release_date.lte', today())
         }
         
         const response = await fetchWithTimeout(`${BASE_URL}/discover/movie?${params}`, { headers })
@@ -294,7 +301,8 @@ export const tmdbApi = {
             language: 'uk-UA',
             page: String(page),
             sort_by: DEFAULT_SORT,
-            'vote_count.gte': '50'
+            'vote_count.gte': '50',
+            'primary_release_date.lte': today()
         })
         const response = await fetchWithTimeout(`${BASE_URL}/discover/movie?${params}`, { headers })
         if (!response.ok) throw new Error(`TMDB API error: ${response.status}`)

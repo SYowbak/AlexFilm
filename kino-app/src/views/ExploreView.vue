@@ -1023,8 +1023,9 @@ async function fetchMoviesPage(p, genreId) {
   // скопіювати та витратити квоту.
   const params = new URLSearchParams({
     language: 'uk-UA',
-    sort_by: 'primary_release_date.desc',
+    sort_by: 'popularity.desc',
     page: String(p),
+    'primary_release_date.lte': new Date().toISOString().slice(0, 10),
   })
   if (genreId) params.set('with_genres', String(genreId))
   const url = `${getApiOrigin()}/api/tmdb/discover/movie?${params.toString()}`
