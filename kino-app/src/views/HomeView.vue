@@ -91,9 +91,9 @@ const loadMovies = async (page = 1) => {
   try {
     let results
     if (searchMode.value) {
-      results = await tmdbApi.searchMovies(searchQuery.value, page)
-      movies.value = results
-      totalPages.value = 10 
+      const data = await tmdbApi.searchMovies(searchQuery.value, page)
+      results = data.results
+      totalPages.value = Math.min(data.totalPages, 500)
     } else if (filterMode.value) {
       const currentFilters = { ...activeFilters.value }
       
@@ -104,26 +104,35 @@ const loadMovies = async (page = 1) => {
              currentFilters.genre = moodData.genres
            }
            if (!currentFilters.year && moodData.yearMax) {
-              currentFilters.year = 'older'
+              currentFilters.year = 'older' 
            }
            if (!currentFilters.withKeywords?.length && moodData.withKeywords?.length) {
              currentFilters.withKeywords = moodData.withKeywords
            }
-           if (moodData.includeAdult) currentFilters.includeAdult = true
+           if (moodData.includeAdult) {
+             currentFilters.includeAdult = true
+             currentFilters.minRating = moodData.minRating
+             currentFilters.minVotes = moodData.minVotes
+           }
         }
       }
       
-      results = await tmdbApi.getFilteredMovies(currentFilters, page)
-      movies.value = results
-      totalPages.value = 50
+      const data = await tmdbApi.getFilteredMovies(currentFilters, page)
+      results = data.results
+      totalPages.value = Math.min(data.totalPages, 500)
     } else if (selectedCategory.value) {
-      results = await tmdbApi.getMoviesByMood(selectedCategory.value, page)
-      movies.value = results
-      totalPages.value = 20
+      const data = await tmdbApi.getMoviesByMood(selectedCategory.value, page)
+      results = data.results
+      totalPages.value = Math.min(data.totalPages, 500)
     } else {
-      results = await tmdbApi.getNewestMovies(page)
-      movies.value = results
-      totalPages.value = 50
+      const data = await tmdbApi.getNewestMovies(page)
+      results = data.results
+      totalPages.value = Math.min(data.totalPages, 500)
+    }
+    movies.value = results
+    if (results.length === 0 && page > 1) {
+      // Сторінка зникла (TMDB перерахував каталог) — повертаємося на першу
+      return loadMovies(1)
     }
     currentPage.value = page
   } catch (err) {

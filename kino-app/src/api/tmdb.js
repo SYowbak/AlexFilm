@@ -34,7 +34,7 @@ const today = () => new Date().toISOString().slice(0, 10)
 
 export const MOOD_CATEGORIES = {
     'Різдвяний': { genres: [], withKeywords: [207317], sortBy: 'popularity.desc' },
-    'Прилюдія': { genres: [], withKeywords: [170827], sortBy: 'popularity.desc' },
+    'Прилюдія': { genres: [], withKeywords: [256466, 170827, 156777], includeAdult: true, minRating: 5, minVotes: 50, sortBy: 'popularity.desc' },
     'Убойні комедії': { genres: [35], withKeywords: [383021, 10123], sortBy: 'primary_release_date.desc' },
     'З половникою': { genres: [10749], keywords: 'romance,love,relationship' },
     'Щоб думати': { genres: [18, 9648], keywords: 'philosophy,psychological,thought-provoking' },
@@ -103,18 +103,16 @@ const sanitizeMovieLanguage = async (movie, signal) => {
 export const tmdbApi = {
     async getMoviesByMood(mood, page = 1) {
         const category = MOOD_CATEGORIES[mood]
-        if (!category) return []
+        if (!category) return { results: [], totalPages: 0 }
         
         const params = new URLSearchParams({
             language: 'uk-UA',
             page: page.toString(),
             sort_by: category.sortBy || DEFAULT_SORT
         })
-        if (!category.includeAdult) {
-            params.append('vote_average.gte', '6')
-            params.append('vote_count.gte', '50')
-        }
         if (category.includeAdult) params.append('include_adult', 'true')
+        params.append('vote_average.gte', String(category.minRating ?? 6))
+        params.append('vote_count.gte', String(category.minVotes ?? 50))
         
         if (category.genres?.length > 0) {
             params.append('with_genres', category.genres.join(','))
@@ -134,7 +132,8 @@ export const tmdbApi = {
         const response = await fetchWithTimeout(`${BASE_URL}/discover/movie?${params}`, { headers })
         if (!response.ok) throw new Error(`TMDB API error: ${response.status}`)
         const data = await response.json()
-        return await Promise.all((data.results || []).map(movie => sanitizeMovieLanguage(movie)))
+        const results = await Promise.all((data.results || []).map(movie => sanitizeMovieLanguage(movie)))
+        return { results, totalPages: data.total_pages || 0 }
     },
 
     async getFilteredMovies(filters, page = 1) {
@@ -145,13 +144,18 @@ export const tmdbApi = {
         })
         if (filters.includeAdult) {
             params.append('include_adult', 'true')
+            params.append('vote_count.gte', String(filters.minVotes ?? 50))
+            // Дефолтний поріг 6 — не вибір користувача; для дорослих
+            // він відсікає якісну еротику з оцінками 5–6.
+            const rating = filters.rating && filters.rating !== '6'
+                ? filters.rating
+                : String(filters.minRating ?? 5)
+            params.append('vote_average.gte', rating)
         } else {
             params.append('vote_count.gte', '50')
-        }
-        if (filters.includeAdult && filters.rating === '6') {
-            // Поріг 6 — дефолт фільтра, а не вибір користувача
-        } else if (filters.rating) {
-            params.append('vote_average.gte', filters.rating)
+            if (filters.rating) {
+                params.append('vote_average.gte', filters.rating)
+            }
         }
         if (filters.withKeywords?.length) {
             params.append('with_keywords', filters.withKeywords.join('|'))
@@ -187,7 +191,8 @@ export const tmdbApi = {
         const response = await fetchWithTimeout(`${BASE_URL}/discover/movie?${params}`, { headers })
         if (!response.ok) throw new Error(`TMDB API error: ${response.status}`)
         const data = await response.json()
-        return await Promise.all((data.results || []).map(movie => sanitizeMovieLanguage(movie)))
+        const results = await Promise.all((data.results || []).map(movie => sanitizeMovieLanguage(movie)))
+        return { results, totalPages: data.total_pages || 0 }
     },
 
     async searchMovies(query, page = 1) {
@@ -200,7 +205,8 @@ export const tmdbApi = {
         const response = await fetchWithTimeout(`${BASE_URL}/search/movie?${params}`, { headers })
         if (!response.ok) throw new Error(`TMDB API error: ${response.status}`)
         const data = await response.json()
-        return await Promise.all((data.results || []).map(movie => sanitizeMovieLanguage(movie)))
+        const results = await Promise.all((data.results || []).map(movie => sanitizeMovieLanguage(movie)))
+        return { results, totalPages: data.total_pages || 0 }
     },
 
     async getMovieDetails(movieId, { signal } = {}) {
@@ -307,7 +313,8 @@ export const tmdbApi = {
         const response = await fetchWithTimeout(`${BASE_URL}/discover/movie?${params}`, { headers })
         if (!response.ok) throw new Error(`TMDB API error: ${response.status}`)
         const data = await response.json()
-        return await Promise.all((data.results || []).map(movie => sanitizeMovieLanguage(movie)))
+        const results = await Promise.all((data.results || []).map(movie => sanitizeMovieLanguage(movie)))
+        return { results, totalPages: data.total_pages || 0 }
     },
 
     async getRandomMovie() {
