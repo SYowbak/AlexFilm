@@ -47,16 +47,14 @@
       <span class="lampa-loader-text">{{ loaderText }}</span>
     </div>
 
-    <!-- Браузер заблокував автозапуск: це НЕ поломка потоку, потрібне
-         натискання. Показуємо явну кнопку замість спінера. -->
-    <button v-if="pendingUserPlay" class="lampa-autoplay-hint" @click="togglePlay">
-      <span class="lampa-autoplay-hint__icon">
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <!-- Автозапуск заблоковано браузером: лише кнопка, без підказок -->
+    <div v-if="pendingUserPlay" class="lampa-center-start" @click="togglePlay">
+      <div class="lampa-big-play">
+        <svg viewBox="0 0 24 24" fill="currentColor">
           <path d="M8 5v14l11-7z" />
         </svg>
-      </span>
-      Натисніть, щоб почати перегляд
-    </button>
+      </div>
+    </div>
 
     <!-- Велика кнопка запуску по центру при старті -->
     <div v-if="!hasStarted" class="lampa-center-start" @click="startPlayback">
@@ -424,13 +422,6 @@
       </button>
     </div>
 
-    <!-- Підказка для резервного embed-у: сторонні плеєри починають
-         відтворення лише після натискання власної кнопки play.
-         pointer-events: none — не перехоплює клік по кнопці embed-у. -->
-    <div v-if="showEmbedHint && hasStarted && !isHlsMode" class="iframe-hint">
-      Натисніть play у вбудованому плеєрі, щоб почати перегляд
-    </div>
-
     <!-- Вибір джерел ДО запуску (під постером) -->
     <div v-if="!hasStarted" class="pre-source-bar">
       <button
@@ -512,10 +503,8 @@ const showControls  = ref(true)
 const openMenu      = ref(null)
 const isHlsMode     = ref(false)
 const loaderText    = ref('Завантаження...')
-// Підказка «натисніть play у вбудованому плеєрі» для резервних embed'ів.
-const showEmbedHint = ref(false)
 // Браузер заблокував автозапуск (NotAllowedError) — показуємо кнопку
-// «натисніть, щоб почати», а не вважаємо потік зламаним.
+// запуску, а не вважаємо потік зламаним.
 const pendingUserPlay = ref(false)
 // Лічильник медіа-сесій: кожна сесія отримує новий <video>-елемент
 // (через :key), тому старі нативні події не можуть зламати новий потік.
@@ -581,7 +570,7 @@ const touchFeedback = ref('')
 let touchFeedbackTimer = null
 
 const onContainerTouchEnd = (e) => {
-  if (e.target.closest('button, input, .player-panel, .player-info, .lampa-menu, .lampa-resume-banner')) return
+  if (e.target.closest('button, input, .player-panel, .player-info, .lampa-menu, .lampa-resume-banner, .lampa-center-start')) return
   const touch = e.changedTouches?.[0]
   if (!touch || !containerRef.value) return
 
@@ -650,14 +639,6 @@ const dismissResumePrompt = () => {
   showResumePrompt.value = false
 }
 
-// Захист від примусових перенаправлень сторінки сторонньою рекламою в iframe
-const beforeUnloadGuard = (e) => {
-  if (hasStarted.value && !isHlsMode.value) {
-    e.preventDefault()
-    e.returnValue = 'Залишити сторінку перегляду фільму на AlexFilm?'
-    return e.returnValue
-  }
-}
 // Підтверджена якість релізу (напр. «1080p BDRip») — її показуємо в інфо-панелі.
 // `selectedQuality` — це вибір рівня ABR у самому HLS-потоку («Auto», «720p»…),
 // тому вони не повинні змішуватися: інакше бейдж «1080p BDRip» зникає
@@ -691,8 +672,6 @@ let iframeLoadTimer = null
 // Сторож «embed не створив плеєр»: сторінка може завантажитися (load
 // відбувся), але всередині буде сторінка-помилка без вкладених фреймів.
 let embedPlayerTimer = null
-// Таймер авто-приховування підказки про клік у вбудованому плеєрі.
-let embedHintTimer = null
 let uaController = null
 let uaPromise = null
 let uaRequestId = 0
@@ -735,8 +714,6 @@ const IFRAME_LOAD_TIMEOUT_MS = 12000
 const EMBED_PLAYER_TIMEOUT_MS = 15000
 // Як часто перевіряємо наявність вкладеного плеєра.
 const EMBED_PLAYER_POLL_MS = 1000
-// Через скільки підказка про клік у вбудованому плеєрі зникає.
-const EMBED_HINT_TIMEOUT_MS = 15000
 const HLS_RETRY_DELAY_MS = 1500
 // Пошук українського дубляжу може тривати довше за буферизацію потоку,
 // тому для нього окремий таймаут — інакше ми втратили б пріоритет дубляжу.
@@ -996,8 +973,6 @@ const remainingFormatted   = computed(() => formatTime(Math.max(0, duration.valu
 // ── Cleaners ────────────────────────────────────────────────────
 const removeIframe = () => {
   clearEmbedPlayerTimer()
-  clearEmbedHintTimer()
-  showEmbedHint.value = false
   if (iframeEl) {
     iframeEl.remove()
     iframeEl = null
@@ -1057,13 +1032,6 @@ const clearEmbedPlayerTimer = () => {
   if (embedPlayerTimer) {
     clearInterval(embedPlayerTimer)
     embedPlayerTimer = null
-  }
-}
-
-const clearEmbedHintTimer = () => {
-  if (embedHintTimer) {
-    clearTimeout(embedHintTimer)
-    embedHintTimer = null
   }
 }
 
@@ -1227,16 +1195,14 @@ const onVideoError = (event) => {
  * Браузер заблокував автозапуск (NotAllowedError).
  *
  * Це НЕ поломка потоку — лише політика автозапуску. Тому ми НЕ
- * перемикаємося на рекламний fallback, а показуємо явну кнопку
- * «Натисніть, щоб почати перегляд»: наступний клік уже буде з
- * користувацьким активаційним станом.
+ * перемикаємося на рекламний fallback, а показуємо кнопку запуску:
+ * наступний клік уже буде з користувацьким активаційним станом.
  */
 const handleAutoplayBlocked = (err, generation) => {
   if (generation !== loadGeneration) return false
   if (err?.name !== 'NotAllowedError') return false
   pendingUserPlay.value = true
   isBuffering.value = false
-  loaderText.value = 'Натисніть «Грати» для запуску'
   return true
 }
 
@@ -1298,21 +1264,6 @@ const showIframe = (url) => {
 
   containerRef.value.appendChild(iframe)
   iframeEl = iframe
-
-  // Підказка «натисніть play у вбудованому плеєрі».
-  //
-  // Сторонні embed-и (vidsrc.me → vidsrc.sh → stellarconductornexus)
-  // НЕ підтримують автозапуск на landing-сторінці: сервер жорстко
-  // віддає `autoStart:false`, і без кліку відео просто не стартує.
-  // Щоб це не виглядало як «злом», пояснюємо користувачу, що саме
-  // треба зробити. `pointer-events:none` — підказка не перехоплює
-  // клік по кнопці play всередині embed-у.
-  showEmbedHint.value = true
-  clearEmbedHintTimer()
-  embedHintTimer = setTimeout(() => {
-    embedHintTimer = null
-    showEmbedHint.value = false
-  }, EMBED_HINT_TIMEOUT_MS)
 
   // Окремий watchdog на ЗАВАНТАЖЕННЯ iframe: якщо сторінка не віддала
   // load-подію за 12 с — перемикаємось на резервне джерело,
@@ -2113,8 +2064,6 @@ watch(
     clearRetryTimer()
     clearFallbackTimer()
     clearIframeLoadTimer()
-    clearEmbedHintTimer()
-    showEmbedHint.value = false
     destroyHls()
     removeIframe()
     // Новий <video> для нового фільму — старі нативні події не чіпають
@@ -2145,8 +2094,6 @@ onMounted(() => {
 
   // Гарячі клавіші та пульт телевізора
   window.addEventListener('keydown', handlePlayerKeyDown)
-  // Захист від спливаючих вікон та небажаних перенаправлень
-  window.addEventListener('beforeunload', beforeUnloadGuard)
 
   checkResume()
 })
@@ -2172,7 +2119,6 @@ onBeforeUnmount(() => {
     document.removeEventListener('webkitfullscreenchange', fullscreenHandler)
   }
   window.removeEventListener('keydown', handlePlayerKeyDown)
-  window.removeEventListener('beforeunload', beforeUnloadGuard)
   destroyHls()
   removeIframe()
 })
@@ -2259,36 +2205,6 @@ onBeforeUnmount(() => {
   to { transform: rotate(360deg); }
 }
 
-/* Підказка для резервного embed-у: сторонній плеєр починає відтворення
-   лише після натискання власної кнопки play. Показується поверх iframe,
-   але НЕ перехоплює кліки (pointer-events: none). */
-.iframe-hint {
-  position: absolute;
-  left: 50%;
-  bottom: 3.2rem;
-  transform: translateX(-50%);
-  z-index: 7;
-  max-width: 90%;
-  padding: 0.5rem 0.95rem;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 0.6rem;
-  background: rgba(10, 12, 18, 0.78);
-  color: rgba(226, 232, 240, 0.92);
-  font-size: 0.8rem;
-  font-weight: 500;
-  line-height: 1.35;
-  text-align: center;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-  backdrop-filter: blur(6px);
-  pointer-events: none;
-  animation: iframe-hint-fade 0.35s ease;
-}
-
-@keyframes iframe-hint-fade {
-  from { opacity: 0; transform: translate(-50%, 0.4rem); }
-  to   { opacity: 1; transform: translate(-50%, 0); }
-}
-
 .lampa-center-start {
   position: absolute;
   inset: 0;
@@ -2305,48 +2221,6 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 
-/* Кнопка запуску, коли браузер заблокував autoplay. */
-.lampa-autoplay-hint {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 9;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.85rem 1.5rem;
-  border: 1px solid rgba(255, 204, 0, 0.5);
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.92);
-  color: #f8fafc;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 0 35px rgba(255, 204, 0, 0.35);
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s ease;
-}
-.lampa-autoplay-hint:hover {
-  transform: translate(-50%, -50%) scale(1.03);
-  background: rgba(30, 41, 59, 0.96);
-}
-.lampa-autoplay-hint:focus-visible {
-  outline: 2px solid #ffcc00;
-  outline-offset: 3px;
-}
-.lampa-autoplay-hint__icon {
-  color: #ffcc00;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-}
-.lampa-autoplay-hint__icon svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
 .lampa-center-start:hover {
   background: rgba(0, 0, 0, 0.5);
 }
@@ -3187,13 +3061,6 @@ onBeforeUnmount(() => {
   .lampa-big-sub {
     font-size: 0.72rem;
     padding: 0;
-  }
-  .lampa-autoplay-hint {
-    top: 42%;
-    max-width: calc(100% - 1.5rem);
-    font-size: 0.8rem;
-    padding: 0.6rem 1rem;
-    text-align: center;
   }
   .pre-source-bar {
     flex-wrap: nowrap;
