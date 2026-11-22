@@ -34,7 +34,7 @@ const today = () => new Date().toISOString().slice(0, 10)
 
 export const MOOD_CATEGORIES = {
     'Різдвяний': { genres: [], withKeywords: [207317], sortBy: 'popularity.desc' },
-    'Прилюдія': { genres: [], withKeywords: [256466, 170827, 156777, 267122], includeAdult: true, sortBy: 'popularity.desc' },
+    'Прилюдія': { genres: [], withKeywords: [170827], sortBy: 'popularity.desc' },
     'Убойні комедії': { genres: [35], withKeywords: [383021, 10123], sortBy: 'primary_release_date.desc' },
     'З половникою': { genres: [10749], keywords: 'romance,love,relationship' },
     'Щоб думати': { genres: [18, 9648], keywords: 'philosophy,psychological,thought-provoking' },
