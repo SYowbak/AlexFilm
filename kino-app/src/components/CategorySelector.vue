@@ -16,13 +16,14 @@
     </div>
 
     <!-- Список категорій -->
-    <div class="mood-grid notranslate" translate="no">
+    <div class="mood-grid notranslate" ref="gridRef" translate="no">
       <button
-        v-for="category in categories"
+        v-for="(category, index) in categories"
         :key="category"
         @click="$emit('select', category)"
         class="mood-chip"
         :class="{ 'mood-chip--active': selectedCategory === category }"
+        :style="spans[index] > 1 ? { gridColumn: 'span ' + spans[index] } : null"
         :aria-pressed="selectedCategory === category"
       >
         <span class="notranslate" translate="no">{{ category }}</span>
@@ -43,7 +44,9 @@
 </template>
 
 <script setup>
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { MOOD_CATEGORIES } from '../api/tmdb'
+import { columnsForWidth, computeMoodSpans } from '../lib/moodMosaic'
 
 defineProps({
   selectedCategory: {
@@ -55,6 +58,38 @@ defineProps({
 defineEmits(['select', 'random'])
 
 const categories = Object.keys(MOOD_CATEGORIES)
+
+const gridRef = ref(null)
+const spans = ref([])
+let resizeObserver = null
+let lastWidth = -1
+
+const updateMosaic = () => {
+  const grid = gridRef.value
+  if (!grid) return
+  const width = grid.clientWidth
+  if (width === lastWidth) return
+  lastWidth = width
+  const gap = parseFloat(getComputedStyle(grid).columnGap) || 8
+  const mobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 480px)').matches
+  const columns = columnsForWidth(grid.clientWidth, gap, mobile)
+  spans.value = computeMoodSpans(categories.length, columns)
+}
+
+onMounted(() => {
+  updateMosaic()
+  if (typeof ResizeObserver !== 'undefined' && gridRef.value) {
+    resizeObserver = new ResizeObserver(updateMosaic)
+    resizeObserver.observe(gridRef.value)
+  } else if (typeof window !== 'undefined') {
+    window.addEventListener('resize', updateMosaic)
+  }
+})
+
+onBeforeUnmount(() => {
+  if (resizeObserver) resizeObserver.disconnect()
+  else if (typeof window !== 'undefined') window.removeEventListener('resize', updateMosaic)
+})
 </script>
 
 <style scoped>
