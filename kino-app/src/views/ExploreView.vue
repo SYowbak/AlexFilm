@@ -7,6 +7,21 @@
         <h1>Нічого дивитися?</h1>
       </div>
       <div class="toolbar-actions">
+        <div class="genre-select-wrapper">
+          <label class="sr-only" for="content-type-select">Тип контенту</label>
+          <select
+            id="content-type-select"
+            class="genre-dropdown"
+            :value="contentType"
+            @change="onContentTypeChange"
+          >
+            <option v-for="opt in CONTENT_TYPE_OPTIONS" :key="opt.value" :value="opt.value">
+              {{ opt.label }}
+            </option>
+          </select>
+          <span class="dropdown-chevron">▼</span>
+        </div>
+
         <!-- Genre Dropdown Select -->
         <div class="genre-select-wrapper">
           <label class="sr-only" for="genre-select">Жанр фільму</label>
@@ -19,21 +34,6 @@
             <option value="">Усі жанри</option>
             <option v-for="g in genresList" :key="g.id" :value="g.id">
               {{ g.name }}
-            </option>
-          </select>
-          <span class="dropdown-chevron">▼</span>
-        </div>
-
-        <div class="genre-select-wrapper">
-          <label class="sr-only" for="content-type-select">Тип контенту</label>
-          <select
-            id="content-type-select"
-            class="genre-dropdown"
-            :value="contentType"
-            @change="onContentTypeChange"
-          >
-            <option v-for="opt in CONTENT_TYPE_OPTIONS" :key="opt.value" :value="opt.value">
-              {{ opt.label }}
             </option>
           </select>
           <span class="dropdown-chevron">▼</span>
@@ -288,17 +288,17 @@ const MAX_MAGNIFICATION = 5.0 // Smooth scaling
 const GRID_COLS = 26
 const GRID_ROWS = 18
 
-// Мозаїка має 26 × 18 = 468 комірок. «Декілька» — третина, «Багато» —
-// повний набір, «Всі» — усі сторінки TMDB для обраного жанру.
+// Мозаїка має 26 × 18 = 468 комірок. «Компактно» — третина,
+// «Збалансовано» — повний набір, «Максимум» — усі сторінки TMDB.
 const LEVELS = {
-  economy: { name: 'Декілька', movies: 150, fps: 24, dpr: 1, effects: false, cache: 150 },
-  normal: { name: 'Багато', movies: 500, fps: 30, dpr: 1, effects: false, cache: 400 },
-  max: { name: 'Всі', movies: Infinity, fps: 60, dpr: 2, effects: true, cache: 600 }
+  economy: { name: 'Компактно', movies: 150, fps: 24, dpr: 1, effects: false, cache: 150 },
+  normal: { name: 'Збалансовано', movies: 500, fps: 30, dpr: 1, effects: false, cache: 400 },
+  max: { name: 'Максимум', movies: Infinity, fps: 60, dpr: 2, effects: true, cache: 600 }
 }
 const LIMIT_OPTIONS = [
-  { value: 'economy', label: 'Декілька' },
-  { value: 'normal', label: 'Багато' },
-  { value: 'max', label: 'Всі' }
+  { value: 'economy', label: 'Компактно' },
+  { value: 'normal', label: 'Збалансовано' },
+  { value: 'max', label: 'Максимум' }
 ]
 const PAGES_PER_BATCH = 4
 
