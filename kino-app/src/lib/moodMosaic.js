@@ -1,22 +1,17 @@
-export function columnsForWidth(width, gap, isMobile = false, minChip = 150) {
-  if (isMobile) return 2
-  if (!width) return 1
-  return Math.max(1, Math.floor((width + gap) / (minChip + gap)))
-}
+// Підбираємо кількість колонок, яка ділить кількість настроїв без залишку,
+// щоб усі кнопки були однакової ширини й жоден рядок не мав порожніх клітин.
+export function columnsForEvenRows(total, width, gap, isMobile = false, minChip = 150, minComfort = 130) {
+  if (isMobile) return Math.min(2, total)
+  if (!width || total < 2) return 2
 
-// Останній рядок заповнюємо повністю: його елементи отримують span
-// floor(columns / remainder) або +1 для перших `extra` плиток.
-export function computeMoodSpans(total, columns) {
-  const spans = new Array(total).fill(1)
-  if (!columns || columns < 1 || total <= columns) return spans
-  const remainder = total % columns
-  if (remainder === 0) return spans
-
-  const base = Math.floor(columns / remainder)
-  const extra = columns % remainder
-  const firstOfLastRow = total - remainder
-  for (let i = 0; i < remainder; i++) {
-    spans[firstOfLastRow + i] = base + (i < extra ? 1 : 0)
+  const ideal = Math.max(2, Math.floor((width + gap) / (minChip + gap)))
+  const candidates = []
+  for (let columns = 2; columns <= Math.min(total, ideal + 1); columns++) {
+    if (total % columns !== 0) continue
+    const chipWidth = (width - (columns - 1) * gap) / columns
+    if (chipWidth < minComfort) continue
+    candidates.push(columns)
   }
-  return spans
+  if (!candidates.length) return ideal
+  return candidates.sort((a, b) => Math.abs(a - ideal) - Math.abs(b - ideal))[0]
 }

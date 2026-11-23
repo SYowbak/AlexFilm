@@ -1,28 +1,23 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { columnsForWidth, computeMoodSpans } from '../src/lib/moodMosaic.js'
+import { columnsForEvenRows } from '../src/lib/moodMosaic.js'
 
-test('колонки рахуються з ширини контейнера', () => {
-  assert.equal(columnsForWidth(1230, 8.8), 7)
-  assert.equal(columnsForWidth(480, 8.8), 3)
+test('18 настроїв у широкому контейнері — 6 колонок по 3 у рядку', () => {
+  assert.equal(columnsForEvenRows(18, 1232, 8.8), 6)
 })
 
-test('на мобільному завжди дві колонки', () => {
-  assert.equal(columnsForWidth(360, 6.4, true), 2)
+test('вузький контейнер не робить плитки занадто тісними', () => {
+  assert.equal(columnsForEvenRows(18, 800, 8.8), 3)
 })
 
-test('19 настроїв у 7 колонок: останній рядок 2+2+1+1+1', () => {
-  const spans = computeMoodSpans(19, 7)
-  assert.deepEqual(spans.slice(-5), [2, 2, 1, 1, 1])
-  assert.equal(spans.slice(-5).reduce((a, b) => a + b, 0), 7)
+test('на мобільному дві колонки', () => {
+  assert.equal(columnsForEvenRows(18, 360, 6.4, true), 2)
 })
 
-test('один елемент в останньому рядку займає всю ширину', () => {
-  const spans = computeMoodSpans(19, 6)
-  assert.equal(spans.at(-1), 6)
-})
-
-test('повний рядок не змінюється', () => {
-  assert.deepEqual(computeMoodSpans(14, 7), new Array(14).fill(1))
+test('кількість колонок завжди ділить кількість настроїв', () => {
+  for (const width of [400, 600, 800, 1000, 1232, 1600]) {
+    const columns = columnsForEvenRows(18, width, 8.8)
+    assert.equal(18 % columns, 0, `width=${width}, columns=${columns}`)
+  }
 })

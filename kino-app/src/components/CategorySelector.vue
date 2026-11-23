@@ -16,14 +16,18 @@
     </div>
 
     <!-- Список категорій -->
-    <div class="mood-grid notranslate" ref="gridRef" translate="no">
+    <div
+      class="mood-grid notranslate"
+      ref="gridRef"
+      :style="{ gridTemplateColumns: 'repeat(' + columns + ', minmax(0, 1fr))' }"
+      translate="no"
+    >
       <button
-        v-for="(category, index) in categories"
+        v-for="category in categories"
         :key="category"
         @click="$emit('select', category)"
         class="mood-chip"
         :class="{ 'mood-chip--active': selectedCategory === category }"
-        :style="spans[index] > 1 ? { gridColumn: 'span ' + spans[index] } : null"
         :aria-pressed="selectedCategory === category"
       >
         <span class="notranslate" translate="no">{{ category }}</span>
@@ -46,7 +50,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { MOOD_CATEGORIES } from '../api/tmdb'
-import { columnsForWidth, computeMoodSpans } from '../lib/moodMosaic'
+import { columnsForEvenRows } from '../lib/moodMosaic'
 
 defineProps({
   selectedCategory: {
@@ -60,7 +64,7 @@ defineEmits(['select', 'random'])
 const categories = Object.keys(MOOD_CATEGORIES)
 
 const gridRef = ref(null)
-const spans = ref([])
+const columns = ref(6)
 let resizeObserver = null
 let lastWidth = -1
 
@@ -72,8 +76,7 @@ const updateMosaic = () => {
   lastWidth = width
   const gap = parseFloat(getComputedStyle(grid).columnGap) || 8
   const mobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 480px)').matches
-  const columns = columnsForWidth(grid.clientWidth, gap, mobile)
-  spans.value = computeMoodSpans(categories.length, columns)
+  columns.value = columnsForEvenRows(categories.length, width, gap, mobile)
 }
 
 onMounted(() => {
