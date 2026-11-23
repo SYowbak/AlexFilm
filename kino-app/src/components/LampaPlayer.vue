@@ -1,16 +1,5 @@
 <template>
   <div class="lampa-player-container" ref="containerRef" @mousemove="onActivity" @mouseleave="onMouseLeave" @touchend="onContainerTouchEnd">
-    <!-- Ukrainian dub discovered in the user's browser (server sees a trailer-only page) -->
-    <iframe
-      v-if="uaEmbedUrl"
-      :src="uaEmbedUrl"
-      class="lampa-ua-embed"
-      title="Український дубляж"
-      allow="autoplay; fullscreen; picture-in-picture"
-      allowfullscreen
-      referrerpolicy="no-referrer"
-    ></iframe>
-
     <!-- Відео елемент для нативного HLS відтворення.
          :key — кожна медіа-сесія має свій <video>: старі нативні події
          (error/canplay/playing) приходять уже після перемикання джерела
@@ -870,7 +859,7 @@ const availableSources = computed(() => {
 })
 
 const currentSourceLabel = computed(() => {
-  if (uaEmbedUrl.value) return 'Український дубляж'
+  if (currentSource.value === 'ua_stream' && (isHlsMode.value || uaEmbedUrl.value)) return 'Український дубляж'
   const src = availableSources.value.find(s => s.id === currentSource.value)
   if (!src) return 'UA Дубляж'
   return src.label
@@ -955,6 +944,10 @@ async function tryClientUaDiscovery() {
           const found = extractEmbedUrl(await pRes.text())
           if (found) {
             uaEmbedUrl.value = found
+            // знайдений у браузері дубляж іде в загальний ланцюжок iframe
+            // (там є watchdog і прибирання мертвих сторінок), а не в
+            // постійний шар поверх плеєра.
+            if (isAllowedUaFrameUrl(found)) uaIframeFallback = found
             return
           }
         }
@@ -1272,7 +1265,7 @@ const fallbackToGlobal = () => {
 }
 
 // ── Iframe Renderer ─────────────────────────────────────────────
-const showIframe = (url) => {
+const showIframe = (url, { timeoutMs = EMBED_PLAYER_TIMEOUT_MS } = {}) => {
   if (!containerRef.value || !url) return false
 
   // Клієнтська перевірка хоста (сервер перевіряє так само)
@@ -1358,7 +1351,7 @@ const showIframe = (url) => {
       clearEmbedPlayerTimer()
       return
     }
-    if (Date.now() - embedStartedAt < EMBED_PLAYER_TIMEOUT_MS) return
+    if (Date.now() - embedStartedAt < timeoutMs) return
     clearEmbedPlayerTimer()
     console.warn('[Player] Джерело не створило плеєр — перемикаюсь на резервне')
     removeIframe()
@@ -1382,7 +1375,7 @@ const fallbackToUaFrame = () => {
   if (!frameUrl || !isAllowedUaFrameUrl(frameUrl)) return false
   uaIframeFallback = null
   console.warn('[Player] HLS-потік не запустився — показую плеєр майданчика')
-  return showIframe(frameUrl)
+  return showIframe(frameUrl, { timeoutMs: 7000 })
 }
 
 // ── HLS Stream Loader ────────────────────────────────────────────
@@ -1639,12 +1632,20 @@ const loadSource = async (srcId) => {
         // майданчика з UA-allow-list (а не випадковий сторонній iframe).
         const frameUrl = data.ashdiIframe || data.iframeUrl || data.hdvbIframe
         if (frameUrl && isAllowedUaFrameUrl(frameUrl)) {
-          showIframe(frameUrl)
+          showIframe(frameUrl, { timeoutMs: 7000 })
           return
         }
       }
 
       if (generation !== loadGeneration) return
+
+      // Дубляж, знайдений у браузері через релей, — останній UA-варіант
+      // перед глобальними джерелами. Мертві сторінки відсіче watchdog.
+      if (uaEmbedUrl.value && isAllowedUaFrameUrl(uaEmbedUrl.value)) {
+        console.warn('[Player] UA embed знайдено в браузері — запускаю його')
+        showIframe(uaEmbedUrl.value, { timeoutMs: 7000 })
+        return
+      }
 
       console.warn('[Player] Український дубляж не знайдено — перемикаюсь на резервне джерело')
       loaderText.value = 'Український дубляж не знайдено, перемикаємо на резервне джерело...'
@@ -2209,16 +2210,6 @@ onBeforeUnmount(() => {
   height: 100%;
   object-fit: contain;
   background: #000;
-}
-
-.lampa-ua-embed {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  border: 0;
-  background: #000;
-  z-index: 20;
 }
 
 .lampa-backdrop {

@@ -66,12 +66,13 @@ const headers = {
 }
 
 // Функція безкоштовного перекладу через Google Translate
-const translateToUkrainian = async (text, signal) => {
+const translateToUkrainian = async (text, signal, timeout = 8000) => {
     if (!text) return text
     try {
         const response = await fetchWithTimeout(
             `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=uk&dt=t&q=${encodeURIComponent(text)}`,
-            { signal }
+            { signal },
+            timeout
         )
         if (!response.ok) return text
         const data = await response.json()
@@ -85,8 +86,40 @@ const translateToUkrainian = async (text, signal) => {
     }
 }
 
+const titleTranslations = new Map()
+
+// Короткі назви Google часто лишає англійськими — тоді MyMemory.
+const translateTitle = async (text, signal) => {
+  if (!text) return text
+  const cached = titleTranslations.get(text)
+  if (cached) return cached
+
+  let result = await translateToUkrainian(text, signal, 3000)
+  if (!hasCyrillic(result) || result === text) {
+    try {
+      const res = await fetchWithTimeout(
+        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en%7Cuk`,
+        { signal },
+        6000
+      )
+      if (res.ok) {
+        const data = await res.json()
+        const candidate = data?.responseData?.translatedText
+        if (candidate && hasCyrillic(candidate) && candidate.toLowerCase() !== text.toLowerCase()) {
+          result = candidate
+        }
+      }
+    } catch (error) {
+      // перекладач недоступний — лишаємо оригінальну назву
+    }
+  }
+  if (titleTranslations.size > 400) titleTranslations.clear()
+  titleTranslations.set(text, result)
+  return result
+}
+
 // Додатковий фільтр для перекладу назв та описів, які залишилися англійською або російською
-const sanitizeMovieLanguage = async (movie, signal) => {
+const sanitizeMovieLanguage = async (movie, signal, deep = false) => {
     if (!movie) return movie
     
     const hasRu = /[ыэъёЫЭЪЁ]/
@@ -101,9 +134,17 @@ const sanitizeMovieLanguage = async (movie, signal) => {
     }
     
     if (needsTranslation(movie.title)) {
-        movie.title = await translateToUkrainian(movie.title, signal)
+        movie.title = deep
+            ? await translateTitle(movie.title, signal)
+            : await translateToUkrainian(movie.title, signal)
     }
-    
+
+    if (needsTranslation(movie.tagline)) {
+        movie.tagline = deep
+            ? await translateTitle(movie.tagline, signal)
+            : await translateToUkrainian(movie.tagline, signal)
+    }
+
     if (needsTranslation(movie.overview)) {
         movie.overview = await translateToUkrainian(movie.overview, signal)
     }
@@ -291,7 +332,7 @@ export const tmdbApi = {
                 }
             }
             
-            return await sanitizeMovieLanguage(data, signal)
+            return await sanitizeMovieLanguage(data, signal, true)
         } catch (error) {
             if (error?.name !== 'AbortError') {
                 console.error('getMovieDetails error:', error)
