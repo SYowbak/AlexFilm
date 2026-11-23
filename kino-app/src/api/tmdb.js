@@ -1,5 +1,6 @@
 import { getApiOrigin } from '../utils/config'
 import { resolveUkrainianTitle, hasCyrillic } from '../lib/uaTitle'
+import { applyContentType } from '../lib/contentType'
 
 // TMDB-ключ НЕ живе в клієнті: запити йдуть через proxy-сервер,
 // який додає api_key на сервері. Інакше ключ потрапляє в бандл і його
@@ -173,6 +174,7 @@ export const tmdbApi = {
         if (category.withKeywords?.length) {
             params.append('with_keywords', category.withKeywords.join('|'))
         }
+        applyContentType(params, category.contentType)
         
         if (category.yearMax) {
             params.append('primary_release_date.lte', `${category.yearMax}-12-31`)
@@ -222,6 +224,7 @@ export const tmdbApi = {
                 params.append('with_genres', filters.genre)
             }
         }
+        applyContentType(params, filters.contentType)
         
         if (filters.year) {
             if (filters.year === 'older') {

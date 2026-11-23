@@ -19,7 +19,21 @@
       </button>
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <!-- Тип контенту -->
+      <div class="space-y-1">
+        <label class="block text-sm font-medium text-gray-400">Тип</label>
+        <select
+          v-model="filters.contentType"
+          @change="applyFilters"
+          class="w-full bg-gray-900 border-gray-700 rounded-lg text-white text-sm focus:ring-neon focus:border-neon p-2.5 outline-none transition-colors border"
+        >
+          <option v-for="opt in CONTENT_TYPE_OPTIONS" :key="opt.value" :value="opt.value">
+            {{ opt.label }}
+          </option>
+        </select>
+      </div>
+
       <!-- Жанр -->
       <div class="space-y-1">
         <label class="block text-sm font-medium text-gray-400">Жанр</label>
@@ -94,6 +108,7 @@
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue'
 import { tmdbApi } from '../api/tmdb'
+import { CONTENT_TYPE_OPTIONS } from '../lib/contentType'
 
 const props = defineProps({
   initialFilters: {
@@ -106,6 +121,7 @@ const emit = defineEmits(['filter-change'])
 
 const genres = ref([])
 const filters = ref({
+  contentType: 'all',
   genre: '',
   year: '',
   rating: '6', // Значення за замовчуванням з API
@@ -116,11 +132,14 @@ const filters = ref({
 watch(() => props.initialFilters, (newVals) => {
   if (Object.keys(newVals).length === 0) {
     resetFilters()
+  } else {
+    filters.value = { ...filters.value, ...newVals }
   }
 }, { deep: true })
 
 const hasActiveFilters = computed(() => {
-  return filters.value.genre !== '' || 
+  return filters.value.contentType !== 'all' ||
+         filters.value.genre !== '' || 
          filters.value.year !== '' || 
          filters.value.rating !== '6' ||
          filters.value.sortBy !== 'primary_release_date.desc'
@@ -141,6 +160,7 @@ const applyFilters = () => {
 
 const resetFilters = () => {
   filters.value = {
+    contentType: 'all',
     genre: '',
     year: '',
     rating: '6',

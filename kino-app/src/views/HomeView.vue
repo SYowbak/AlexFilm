@@ -54,7 +54,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { tmdbApi, MOOD_CATEGORIES } from '../api/tmdb'
 import CategorySelector from '../components/CategorySelector.vue'
@@ -75,6 +75,40 @@ const searchQuery = ref('')
 const filterMode = ref(false)
 const activeFilters = ref({})
 const loadingRandom = ref(false)
+
+// Стан каталогу живе в sessionStorage: повернення зі сторінки фільму
+// (або перезавантаження вкладки) має лишати обраний настрій і фільтри.
+const HOME_STATE_KEY = 'alexfilm_home_state'
+
+try {
+  const raw = sessionStorage.getItem(HOME_STATE_KEY)
+  if (raw) {
+    const saved = JSON.parse(raw)
+    selectedCategory.value = saved.selectedCategory || ''
+    filterMode.value = !!saved.filterMode
+    activeFilters.value = saved.activeFilters && typeof saved.activeFilters === 'object' ? saved.activeFilters : {}
+    searchMode.value = !!saved.searchMode
+    searchQuery.value = saved.searchQuery || ''
+    currentPage.value = Number(saved.currentPage) > 0 ? Number(saved.currentPage) : 1
+  }
+} catch (_) {}
+
+watch(
+  [selectedCategory, filterMode, activeFilters, searchMode, searchQuery, currentPage],
+  () => {
+    try {
+      sessionStorage.setItem(HOME_STATE_KEY, JSON.stringify({
+        selectedCategory: selectedCategory.value,
+        filterMode: filterMode.value,
+        activeFilters: activeFilters.value,
+        searchMode: searchMode.value,
+        searchQuery: searchQuery.value,
+        currentPage: currentPage.value,
+      }))
+    } catch (_) {}
+  },
+  { deep: true }
+)
 
 const getTitle = () => {
   if (searchMode.value) return `Результати пошуку: "${searchQuery.value}"`
@@ -152,8 +186,7 @@ const handleCategorySelect = (category) => {
       selectedCategory.value = category
       searchMode.value = false
       searchQuery.value = ''
-      filterMode.value = false
-      activeFilters.value = {}
+      // Розширені фільтри (зокрема тип контенту) мають діяти поверх настрою
       loadMovies(1)
   }
 }
@@ -174,7 +207,7 @@ const handleClearSearch = () => {
 }
 
 const handleAdvancedFilter = (filters) => {
-  const hasActiveFilters = filters.genre !== '' || filters.year !== '' || filters.rating !== '6' || filters.sortBy !== 'primary_release_date.desc'
+  const hasActiveFilters = filters.contentType !== 'all' || filters.genre !== '' || filters.year !== '' || filters.rating !== '6' || filters.sortBy !== 'primary_release_date.desc'
   
   // Якщо обрано настрій, будь-яка зміна розширеного пошуку (навіть сортування)
   // застосовується поверх настрою, а не скидає його.
@@ -206,6 +239,6 @@ const handleRandomMovie = async () => {
 }
 
 onMounted(() => {
-  loadMovies(1)
+  loadMovies(currentPage.value)
 })
 </script>

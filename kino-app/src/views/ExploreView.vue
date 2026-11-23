@@ -24,6 +24,21 @@
           <span class="dropdown-chevron">▼</span>
         </div>
 
+        <div class="genre-select-wrapper">
+          <label class="sr-only" for="content-type-select">Тип контенту</label>
+          <select
+            id="content-type-select"
+            class="genre-dropdown"
+            :value="contentType"
+            @change="onContentTypeChange"
+          >
+            <option v-for="opt in CONTENT_TYPE_OPTIONS" :key="opt.value" :value="opt.value">
+              {{ opt.label }}
+            </option>
+          </select>
+          <span class="dropdown-chevron">▼</span>
+        </div>
+
         <label class="explore-limit" for="movie-limit">
           <span>Фільмів</span>
           <select
@@ -239,6 +254,7 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { tmdbApi } from '../api/tmdb'
 import { getApiOrigin } from '../utils/config'
+import { CONTENT_TYPE_OPTIONS, applyContentType } from '../lib/contentType'
 import { useFavoritesStore } from '../stores/favorites'
 import { useFavorite } from '../composables/useFavorite'
 
@@ -260,6 +276,7 @@ const hoveredCell = ref(null)
 const genreMap = ref({})
 const genresList = ref([])
 const selectedGenreId = ref(null)
+const contentType = ref('all')
 
 // Image Cache: map movieId -> HTMLImageElement
 const imageMap = new Map()
@@ -1017,7 +1034,7 @@ function handleResize() {
 }
 
 // Progressive streaming fetch from center outwards
-async function fetchMoviesPage(p, genreId) {
+async function fetchMoviesPage(p, genreId, type) {
   // TMDB-ключ НЕ в клієнті: запит іде через локальний proxy, який додає
   // api_key на сервері. Інакше ключ потрапляє в бандл і його можна
   // скопіювати та витратити квоту.
@@ -1028,6 +1045,7 @@ async function fetchMoviesPage(p, genreId) {
     'primary_release_date.lte': new Date().toISOString().slice(0, 10),
   })
   if (genreId) params.set('with_genres', String(genreId))
+  applyContentType(params, type)
   const url = `${getApiOrigin()}/api/tmdb/discover/movie?${params.toString()}`
   try {
     const res = await fetch(url)
@@ -1041,7 +1059,7 @@ async function fetchMoviesPage(p, genreId) {
 
 let loadToken = 0
 
-async function loadMovies(offset = 1, genreId = selectedGenreId.value) {
+async function loadMovies(offset = 1, genreId = selectedGenreId.value, type = contentType.value) {
   const token = ++loadToken
   const target = level.value.movies
   loading.value = true
@@ -1060,7 +1078,7 @@ async function loadMovies(offset = 1, genreId = selectedGenreId.value) {
     while (unique.length < target && emptyPages < 2) {
       const batch = []
       for (let i = 0; i < PAGES_PER_BATCH; i++) batch.push(page++)
-      const results = await Promise.all(batch.map(p => fetchMoviesPage(p, genreId)))
+      const results = await Promise.all(batch.map(p => fetchMoviesPage(p, genreId, type)))
       if (token !== loadToken) return
 
       let added = 0
@@ -1108,6 +1126,13 @@ function selectGenre(id) {
 function onGenreSelectChange(e) {
   const val = e.target.value
   selectGenre(val === '' ? null : Number(val))
+}
+
+function onContentTypeChange(e) {
+  contentType.value = e.target.value
+  closeDetails()
+  currentOffsetPage = 1
+  loadMovies(1, selectedGenreId.value, contentType.value)
 }
 
 function refreshMovies() {
