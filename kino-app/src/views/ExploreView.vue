@@ -1344,7 +1344,9 @@ h1 {
   border-radius: inherit;
   pointer-events: none;
   z-index: 5;
-  box-shadow: inset 0 0 34px 10px rgba(3, 6, 17, 0.72);
+  box-shadow:
+    inset 0 0 34px 10px rgba(3, 6, 17, 0.72),
+    inset 0 0 8px 3px rgba(3, 6, 17, 0.98);
 }
 
 canvas {
