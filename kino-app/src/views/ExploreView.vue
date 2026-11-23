@@ -572,8 +572,8 @@ function render(timestamp = 0) {
 
   const canvas = canvasEl.value
   const ctx = canvas.getContext('2d')
-  const width = stageEl.value.clientWidth
-  const height = stageEl.value.clientHeight
+  const width = canvas.clientWidth
+  const height = canvas.clientHeight
 
   if (width === 0 || height === 0) {
     animId = requestAnimationFrame(render)
@@ -1021,13 +1021,16 @@ function pickRandomMovie() {
 // Resize Canvas
 function handleResize() {
   if (!stageEl.value || !canvasEl.value) return
-  const rect = stageEl.value.getBoundingClientRect()
+  const width = stageEl.value.clientWidth
+  const height = stageEl.value.clientHeight
   const dpr = Math.min(window.devicePixelRatio || 1, level.value.dpr)
 
-  canvasEl.value.width = rect.width * dpr
-  canvasEl.value.height = rect.height * dpr
-  canvasEl.value.style.width = `${rect.width}px`
-  canvasEl.value.style.height = `${rect.height}px`
+  // clientWidth/Height — це контент без border. getBoundingClientRect був би
+  // на 2px більший, і clearRect лишав би застарілі пікселі на краю canvas.
+  canvasEl.value.width = width * dpr
+  canvasEl.value.height = height * dpr
+  canvasEl.value.style.width = `${width}px`
+  canvasEl.value.style.height = `${height}px`
 
   const ctx = canvasEl.value.getContext('2d')
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
@@ -1332,21 +1335,9 @@ h1 {
   overflow: hidden;
   border-radius: 1.25rem;
   background: radial-gradient(ellipse at 50% 50%, #0d1527 0%, #030611 90%);
-  border: 1px solid #0f172a;
+  border: 1px solid #1e293b;
   box-shadow: 0 25px 70px rgba(0, 0, 0, 0.85);
   user-select: none;
-}
-
-.explore-stage::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  z-index: 5;
-  box-shadow:
-    inset 0 0 34px 10px rgba(3, 6, 17, 0.72),
-    inset 0 0 8px 3px rgba(3, 6, 17, 0.98);
 }
 
 canvas {
