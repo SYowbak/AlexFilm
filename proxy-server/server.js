@@ -2080,6 +2080,56 @@ app.get('/api/hls', async (req, res) => {
 // ───────────────────────────────────────────────
 const tmdbBuckets = new Map()
 
+// Один і той самий discover/detail-запит не має йти upstream щоразу —
+// саме повторні запити з нашого Render-IP і викликали 429 від TMDB.
+const TMDB_CACHE_TTL_MS = 10 * 60 * 1000
+const TMDB_CACHE_MAX = 400
+const tmdbCache = new Map()
+const tmdbInflight = new Map()
+
+function tmdbCacheGet(url) {
+  const entry = tmdbCache.get(url)
+  if (!entry) return null
+  tmdbCache.delete(url)
+  tmdbCache.set(url, entry)
+  return entry
+}
+
+function tmdbCacheSet(url, body) {
+  if (tmdbCache.size >= TMDB_CACHE_MAX) {
+    const oldest = tmdbCache.keys().next()
+    if (!oldest.done) tmdbCache.delete(oldest.value)
+  }
+  tmdbCache.set(url, { body, expiresAt: Date.now() + TMDB_CACHE_TTL_MS })
+}
+
+const tmdbWait = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
+async function fetchTmdbUpstream(url, signal) {
+  let status = 502
+  let body = ''
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const upstreamRes = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Accept-Language': 'uk-UA,uk;q=0.9,en-US;q=0.8',
+      },
+      timeout: 10000,
+      redirect: 'manual',
+      size: MAX_RESPONSE_BYTES,
+      signal,
+    })
+    status = upstreamRes.status
+    body = await upstreamRes.text()
+    if (status !== 429 || signal?.aborted) break
+    const retryAfter = Number(upstreamRes.headers.get('retry-after'))
+    await tmdbWait(Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter * 1000, 3000) : 400 * (attempt + 1))
+    if (signal?.aborted) break
+  }
+  return { status, body }
+}
+
 function tmdbRateLimitHit(req) {
   const now = Date.now()
   const key = clientKey(req)
@@ -2131,12 +2181,25 @@ app.use('/api/tmdb', async (req, res) => {
     return res.status(400).json({ error: 'Недозволений TMDB шлях' })
   }
 
+  const upstreamUrl = buildTmdbUpstreamUrl(path, req.query)
+  const cached = tmdbCacheGet(upstreamUrl)
+  const sendCached = (entry) => {
+    res.status(200)
+    res.set('Content-Type', 'application/json; charset=utf-8')
+    res.set('Cache-Control', 'public, max-age=300')
+    res.send(entry.body)
+  }
+
+  if (cached && cached.expiresAt > Date.now()) return sendCached(cached)
+
+  // Ліміт рахуємо лише для реальних upstream-запитів: кешовані відповіді
+  // не витрачають квоту, тому 429 від нашого проксі тепер майже неможливий.
   if (!tmdbRateLimitHit(req)) {
+    if (cached) return sendCached(cached)
     res.set('Retry-After', '10')
     return res.status(429).json({ error: 'Забагато запитів до TMDB' })
   }
 
-  const upstreamUrl = buildTmdbUpstreamUrl(path, req.query)
   const controller = new AbortController()
   res.on('close', () => {
     if (!res.writableEnded) {
@@ -2144,24 +2207,31 @@ app.use('/api/tmdb', async (req, res) => {
     }
   })
 
-  try {
-    const upstreamRes = await fetch(upstreamUrl, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Accept-Language': 'uk-UA,uk;q=0.9,en-US;q=0.8',
-      },
-      timeout: 10000,
-      redirect: 'manual',
-      size: MAX_RESPONSE_BYTES,
-      signal: controller.signal,
-    })
+  let pending = tmdbInflight.get(upstreamUrl)
+  if (!pending) {
+    pending = fetchTmdbUpstream(upstreamUrl, controller.signal)
+    tmdbInflight.set(upstreamUrl, pending)
+    const started = pending
+    pending.finally(() => {
+      if (tmdbInflight.get(upstreamUrl) === started) tmdbInflight.delete(upstreamUrl)
+    }).catch(() => {})
+  }
 
-    const body = await upstreamRes.text()
-    res.status(upstreamRes.status)
+  try {
+    const result = await pending
+    if (result.status === 200) {
+      tmdbCacheSet(upstreamUrl, result.body)
+    } else if (cached) {
+      // TMDB тимчасово віддає 429/5xx — краще старі дані, ніж помилка в UI
+      return sendCached(cached)
+    }
+    res.status(result.status)
     res.set('Content-Type', 'application/json; charset=utf-8')
-    res.send(body)
+    res.send(result.body)
   } catch (err) {
+    if (cached && !(err && (err.name === 'AbortError' || err.type === 'aborted'))) {
+      return sendCached(cached)
+    }
     if (err && (err.name === 'AbortError' || err.type === 'aborted')) {
       if (!res.writableEnded) res.status(499).json({ error: 'Запит скасовано' })
       return
@@ -2188,12 +2258,12 @@ const distPath = path.resolve(__dirname, '../kino-app/dist')
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath, {
     setHeaders: (res, filePath) => {
-      // index.html ніколи не кешується браузером (особливо на Smart TV),
-      // щоб нові релізи і оновлення застосовувалися миттєво.
+      // no-cache = завжди ревалідувати (нові релізи підхоплюються одразу),
+      // але НЕ no-store: інакше Chromium вимикає bfcache і Samsung при
+      // повороті екрана у повному екрані перезавантажує вкладку замість
+      // відновлення.
       if (filePath.endsWith('index.html')) {
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
-        res.setHeader('Pragma', 'no-cache')
-        res.setHeader('Expires', '0')
+        res.setHeader('Cache-Control', 'no-cache')
       } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
         res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
       }
@@ -2202,9 +2272,7 @@ if (fs.existsSync(distPath)) {
   // Fallback для SPA (Vue Router HTML5 history mode) у Express 5
   app.use((req, res, next) => {
     if (req.method === 'GET' && !req.path.startsWith('/api/') && req.path !== '/health') {
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
-      res.setHeader('Pragma', 'no-cache')
-      res.setHeader('Expires', '0')
+      res.setHeader('Cache-Control', 'no-cache')
       return res.sendFile(path.join(distPath, 'index.html'))
     }
     next()

@@ -6,26 +6,33 @@ import { getApiOrigin } from '../utils/config'
 const BASE_URL = `${getApiOrigin()}/api/tmdb`
 const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p'
 
-// Fetch with timeout wrapper
+// Fetch with timeout wrapper. Одна повторна спроба при 429 — короткі
+// спалахи rate-limit на проксі/ TMDB зазвичай минають менше ніж за секунду.
 const fetchWithTimeout = async (url, options = {}, timeout = 8000) => {
-    const controller = new AbortController()
-    const externalSignal = options.signal
-    const abortFromCaller = () => controller.abort()
+    const attempt = async () => {
+        const controller = new AbortController()
+        const externalSignal = options.signal
+        const abortFromCaller = () => controller.abort()
 
-    if (externalSignal?.aborted) {
-        controller.abort()
-    } else {
-        externalSignal?.addEventListener('abort', abortFromCaller, { once: true })
+        if (externalSignal?.aborted) {
+            controller.abort()
+        } else {
+            externalSignal?.addEventListener('abort', abortFromCaller, { once: true })
+        }
+
+        const id = setTimeout(() => controller.abort(), timeout)
+        try {
+            return await fetch(url, { ...options, signal: controller.signal })
+        } finally {
+            clearTimeout(id)
+            externalSignal?.removeEventListener('abort', abortFromCaller)
+        }
     }
 
-    const id = setTimeout(() => controller.abort(), timeout)
-    try {
-        const response = await fetch(url, { ...options, signal: controller.signal })
-        return response
-    } finally {
-        clearTimeout(id)
-        externalSignal?.removeEventListener('abort', abortFromCaller)
-    }
+    const response = await attempt()
+    if (response.status !== 429) return response
+    await new Promise(resolve => setTimeout(resolve, 700))
+    return attempt()
 }
 
 // Категорії настрою з відповідними жанрами та ключовими словами

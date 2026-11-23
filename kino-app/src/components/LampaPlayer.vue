@@ -639,6 +639,49 @@ const dismissResumePrompt = () => {
   showResumePrompt.value = false
 }
 
+// Якщо Samsung перестворив вкладку (повний екран → поворот екрана),
+// сторінка перезавантажується без нашої участі. Зберігаємо активну
+// сесію у sessionStorage і запускаємо її з того ж місця після старту.
+// Звичайний перехід до іншого фільму сесію знищує (onBeforeUnmount),
+// а pagehide — зберігає останню позицію.
+const LIVE_SESSION_KEY = 'alexfilm_live_session'
+let liveSessionSavedAt = 0
+let pendingSeekTime = 0
+
+const saveLiveSession = (force = false) => {
+  if (!props.tmdbId || !hasStarted.value || !isPlaying.value || !currentTime.value) return
+  if (!force && Date.now() - liveSessionSavedAt < 3000) return
+  liveSessionSavedAt = Date.now()
+  try {
+    sessionStorage.setItem(LIVE_SESSION_KEY, JSON.stringify({
+      tmdbId: props.tmdbId,
+      type: props.type,
+      source: currentSource.value,
+      time: currentTime.value,
+      savedAt: Date.now(),
+    }))
+  } catch (_) {}
+}
+
+const clearLiveSession = () => {
+  try { sessionStorage.removeItem(LIVE_SESSION_KEY) } catch (_) {}
+}
+
+const restoreLiveSession = () => {
+  let raw
+  try { raw = sessionStorage.getItem(LIVE_SESSION_KEY) } catch (_) { return false }
+  if (!raw) return false
+  let session
+  try { session = JSON.parse(raw) } catch (_) { return false }
+  clearLiveSession()
+  if (String(session?.tmdbId) !== String(props.tmdbId) || session.type !== props.type) return false
+  if (!session.source || !(session.time > 0)) return false
+  if (Date.now() - session.savedAt > 10 * 60 * 1000) return false
+  pendingSeekTime = session.time
+  loadSource(session.source)
+  return true
+}
+
 // Підтверджена якість релізу (напр. «1080p BDRip») — її показуємо в інфо-панелі.
 // `selectedQuality` — це вибір рівня ABR у самому HLS-потоку («Auto», «720p»…),
 // тому вони не повинні змішуватися: інакше бейдж «1080p BDRip» зникає
@@ -666,6 +709,7 @@ let hlsRetryCount = 0
 let uaIframeFallback = null
 let docClickHandler = null
 let fullscreenHandler = null
+let pageHideHandler = null
 let retryTimer = null
 let fallbackTimer = null
 let iframeLoadTimer = null
@@ -1737,6 +1781,7 @@ const onTimeUpdate = (event) => {
         } catch (_) {}
       }
     }
+    saveLiveSession()
   }
   // Рух відтворення — теж ознака живості потоку
   touchStreamActivity()
@@ -1753,6 +1798,14 @@ const onLoadedMetadata = (event) => {
   if (!isCurrentMediaEvent(event)) return
   if (!videoRef.value) return
   duration.value = videoRef.value.duration || 0
+  if (pendingSeekTime > 0) {
+    const t = Math.min(pendingSeekTime, Math.max(0, duration.value - 5))
+    pendingSeekTime = 0
+    if (t > 0) {
+      try { videoRef.value.currentTime = t } catch (_) {}
+      currentTime.value = t
+    }
+  }
   // Застосовуємо вибрані налаштування гучності одразу з появою метаданих
   videoRef.value.volume = volume.value
   videoRef.value.muted = isMuted.value
@@ -2095,7 +2148,11 @@ onMounted(() => {
   // Гарячі клавіші та пульт телевізора
   window.addEventListener('keydown', handlePlayerKeyDown)
 
-  checkResume()
+  // Перед перезавантаженням вкладки зберігаємо останню позицію
+  pageHideHandler = () => saveLiveSession(true)
+  window.addEventListener('pagehide', pageHideHandler)
+
+  if (!restoreLiveSession()) checkResume()
 })
 
 onBeforeUnmount(() => {
@@ -2119,6 +2176,8 @@ onBeforeUnmount(() => {
     document.removeEventListener('webkitfullscreenchange', fullscreenHandler)
   }
   window.removeEventListener('keydown', handlePlayerKeyDown)
+  if (pageHideHandler) window.removeEventListener('pagehide', pageHideHandler)
+  clearLiveSession()
   destroyHls()
   removeIframe()
 })
