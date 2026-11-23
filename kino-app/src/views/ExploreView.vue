@@ -1419,6 +1419,7 @@ canvas {
   width: 480px;
   max-width: 48%;
   z-index: 40;
+  box-shadow: 22px 0 46px -14px rgba(2, 4, 9, 0.94);
   display: flex;
   flex-direction: column;
   justify-content: flex-start; /* Aligned from the top! */
@@ -1451,8 +1452,8 @@ canvas {
   background: linear-gradient(
     135deg,
     rgba(2, 4, 9, 0.98) 0%,
-    rgba(2, 4, 9, 0.92) 65%,
-    rgba(2, 4, 9, 0.5) 100%
+    rgba(2, 4, 9, 0.97) 65%,
+    rgba(2, 4, 9, 0.96) 100%
   );
   pointer-events: none;
 }
