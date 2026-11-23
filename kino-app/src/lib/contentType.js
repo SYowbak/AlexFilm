@@ -1,7 +1,7 @@
 export const ANIMATION_GENRE_ID = 16
 
 export const CONTENT_TYPE_OPTIONS = [
-  { value: 'all', label: 'Фільми та мультфільми' },
+  { value: 'all', label: 'Все' },
   { value: 'movies', label: 'Фільми' },
   { value: 'animation', label: 'Мультфільми' },
 ]
