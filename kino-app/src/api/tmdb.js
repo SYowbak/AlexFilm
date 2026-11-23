@@ -1,4 +1,5 @@
 import { getApiOrigin } from '../utils/config'
+import { resolveUkrainianTitle, hasCyrillic } from '../lib/uaTitle'
 
 // TMDB-ключ НЕ живе в клієнті: запити йдуть через proxy-сервер,
 // який додає api_key на сервері. Інакше ключ потрапляє в бандл і його
@@ -74,7 +75,10 @@ const translateToUkrainian = async (text, signal) => {
         )
         if (!response.ok) return text
         const data = await response.json()
-        return data[0].map(item => item[0]).join('')
+        const raw = data[0].map(item => item[0]).join('')
+        // Перекладач іноді повертає транслітерацію замість кирилиці —
+        // така «українська» назва насправді просто латиниця.
+        return hasCyrillic(raw) ? raw : text
     } catch (error) {
         console.error('Translation error:', error)
         return text
@@ -255,17 +259,14 @@ export const tmdbApi = {
                 const releaseDatesData = await parseOrEmpty(releaseDatesRes, { results: [] })
                 const altTitlesData = await parseOrEmpty(altTitlesRes, { titles: [] })
 
-                // Багаторівневий пошук офіційної української прокатної чи альтернативної назви
+                // TMDB uk-UA title — канонічний (саме він на постері).
+                // UA-таблиці іноді містять латинські транслітерації,
+                // тому вони лише fallback, і лише як кирилиця.
                 const uaRelease = releaseDatesData?.results?.find(r => r.iso_3166_1 === 'UA')
                 const uaCinemaTitle = uaRelease?.release_dates?.find(d => d.title && d.title.trim() !== '')?.title
-                
                 const uaAlt = altTitlesData?.titles?.find(t => (t.iso_3166_1 === 'UA' || t.iso_639_1 === 'uk') && t.title && t.title.trim() !== '')?.title
 
-                if (uaCinemaTitle) {
-                    data.title = uaCinemaTitle
-                } else if (uaAlt) {
-                    data.title = uaAlt
-                }
+                data.title = resolveUkrainianTitle(data.title, uaCinemaTitle, uaAlt)
             } catch (e) {
                 if (e?.name === 'AbortError') throw e
                 console.warn('Не вдалося завантажити додаткові дані:', e)
