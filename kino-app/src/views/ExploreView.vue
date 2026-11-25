@@ -100,7 +100,9 @@
           @mousedown.stop
           @mouseup.stop
           @touchstart.stop
+          @touchmove.stop
           @touchend.stop
+          @wheel.stop
         >
           <!-- Backdrop background glow -->
           <div
@@ -932,7 +934,7 @@ function onTouchStart(e) {
 }
 
 function onTouchMove(e) {
-  if (!isDragging || e.touches.length !== 1) return
+  if (isOverlayTarget(e) || !isDragging || e.touches.length !== 1) return
   const t = e.touches[0]
   const rect = stageEl.value?.getBoundingClientRect()
   if (rect) {
@@ -976,6 +978,7 @@ function onTouchEnd(e) {
 
 // Wheel pan
 function onWheel(e) {
+  if (isOverlayTarget(e)) return
   targetCamY += e.deltaY * 0.6
   targetCamX += (e.deltaX || 0) * 0.6
 }
