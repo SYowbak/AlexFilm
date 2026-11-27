@@ -118,8 +118,9 @@
             ✕
           </button>
 
-          <div class="panel-inner">
-            <!-- Trailer or Backdrop Media at top -->
+          <div class="panel-scroll">
+            <div class="panel-inner">
+              <!-- Trailer or Backdrop Media at top -->
             <div class="panel-media-top">
               <div v-if="trailerKey" class="trailer-wrapper">
                 <iframe
@@ -240,6 +241,7 @@
                 </button>
               </div>
             </div>
+          </div>
           </div>
         </div>
       </Transition>
@@ -1431,13 +1433,25 @@ canvas {
   justify-content: flex-start; /* Aligned from the top! */
   padding: 1.25rem 1.4rem 2rem;
   pointer-events: auto;
+  overflow: hidden;
+}
+
+.film-details-panel::-webkit-scrollbar {
+  display: none;
+}
+
+.panel-scroll {
+  position: relative;
+  z-index: 2;
+  height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  touch-action: pan-y;
 }
 
-.film-details-panel::-webkit-scrollbar {
+.panel-scroll::-webkit-scrollbar {
   display: none;
 }
 
@@ -1771,7 +1785,7 @@ canvas {
     padding: 1.25rem;
   }
 }
-.film-details-panel {
+.panel-scroll {
   touch-action: pan-y;
 }
 
