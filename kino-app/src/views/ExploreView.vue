@@ -367,6 +367,8 @@ let bulgeY = 0
 let targetBulgeX = 0
 let targetBulgeY = 0
 let isMouseInside = false
+let lastTouchAt = 0
+const isRecentTouch = () => Date.now() - lastTouchAt < 700
 
 // Dragging State
 let isDragging = false
@@ -837,11 +839,12 @@ function render(timestamp = 0) {
 
 // Mouse Handlers
 function onMouseEnter() {
+  if (isRecentTouch()) return
   isMouseInside = true
 }
 
 function onMouseDown(e) {
-  if (e.button !== 0) return
+  if (isRecentTouch() || e.button !== 0) return
   if (isOverlayTarget(e)) return
   isDragging = true
   hasMoved = false
@@ -857,6 +860,7 @@ function onMouseDown(e) {
 }
 
 function onMouseMove(e) {
+  if (isRecentTouch()) return
   const rect = stageEl.value?.getBoundingClientRect()
   if (rect) {
     mouseX = e.clientX - rect.left
@@ -910,17 +914,29 @@ function onMouseLeave() {
   mouseY = -9999
 }
 
+function pickCardAt(x, y) {
+  let best = null
+  for (const card of renderedCards) {
+    if (
+      x >= card.x - card.w / 2 && x <= card.x + card.w / 2 &&
+      y >= card.y - card.h / 2 && y <= card.y + card.h / 2
+    ) {
+      if (!best || card.zOrder > best.zOrder) best = card
+    }
+  }
+  return best
+}
+
 // Touch Handlers
 function onTouchStart(e) {
   if (e.touches.length !== 1) return
   if (isOverlayTarget(e)) return
-  const t = e.touches[0]
-  const rect = stageEl.value?.getBoundingClientRect()
-  if (rect) {
-    mouseX = t.clientX - rect.left
-    mouseY = t.clientY - rect.top
-    isMouseInside = true
-  }
+  // Дотик не є наведенням: не активуємо лінзу й збільшену картку
+  lastTouchAt = Date.now()
+  isMouseInside = false
+  hoveredCell.value = null
+  mouseX = -9999
+  mouseY = -9999
 
   isDragging = true
   hasMoved = false
@@ -937,13 +953,8 @@ function onTouchStart(e) {
 
 function onTouchMove(e) {
   if (isOverlayTarget(e) || !isDragging || e.touches.length !== 1) return
+  lastTouchAt = Date.now()
   const t = e.touches[0]
-  const rect = stageEl.value?.getBoundingClientRect()
-  if (rect) {
-    mouseX = t.clientX - rect.left
-    mouseY = t.clientY - rect.top
-  }
-
   const dx = t.clientX - dragStartX
   const dy = t.clientY - dragStartY
 
@@ -967,10 +978,14 @@ function onTouchMove(e) {
 
 function onTouchEnd(e) {
   if (!isDragging) return
+  lastTouchAt = Date.now()
   isDragging = false
 
-  if (!hasMoved && hoveredCell.value && !isOverlayTarget(e)) {
-    selectMovieCell(hoveredCell.value)
+  if (!hasMoved && !isOverlayTarget(e)) {
+    const t = e.changedTouches?.[0]
+    const rect = stageEl.value?.getBoundingClientRect()
+    const card = t && rect ? pickCardAt(t.clientX - rect.left, t.clientY - rect.top) : null
+    if (card) selectMovieCell(card)
   }
   isMouseInside = false
   isPointerOverOverlay = false
