@@ -1087,15 +1087,17 @@ function onTouchEnd(e) {
   mouseY = -9999
 }
 
-// Wheel: vertical — zoom, horizontal / Shift — pan
+// Trackpad: two-finger scroll pans, pinch (ctrlKey wheel) zooms
 function onWheel(e) {
   if (isOverlayTarget(e)) return
   const rect = stageEl.value.getBoundingClientRect()
-  if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-    targetCamX += (e.deltaX || e.deltaY) * 0.6
+  if (e.ctrlKey || e.metaKey) {
+    const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY
+    applyZoom(zoom * Math.exp(-dy * 0.004), e.clientX - rect.left, e.clientY - rect.top)
     return
   }
-  applyZoom(zoom * Math.exp(-e.deltaY * 0.0015), e.clientX - rect.left, e.clientY - rect.top)
+  targetCamY += e.deltaY * 0.6
+  targetCamX += (e.deltaX || 0) * 0.6
 }
 
 // Select a movie from cell click
