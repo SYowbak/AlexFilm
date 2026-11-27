@@ -304,9 +304,9 @@ const GRID_ROWS = 18
 // Мозаїка має 26 × 18 = 468 комірок. «Компактно» — третина,
 // «Збалансовано» — повний набір, «Максимум» — усі сторінки TMDB.
 const LEVELS = {
-  economy: { name: 'Компактно', movies: 150, fps: 24, dpr: 1, effects: false, cache: 150 },
-  normal: { name: 'Збалансовано', movies: 500, fps: 30, dpr: 1, effects: false, cache: 400 },
-  max: { name: 'Максимум', movies: Infinity, fps: 60, dpr: 2, effects: true, cache: 600 }
+  economy: { name: 'Компактно', movies: 150, fps: 24, dpr: 1, effects: false, cache: 200 },
+  normal: { name: 'Збалансовано', movies: 500, fps: 30, dpr: 1, effects: false, cache: 650 },
+  max: { name: 'Максимум', movies: Infinity, fps: 60, dpr: 2, effects: true, cache: 1000 }
 }
 const LIMIT_OPTIONS = [
   { value: 'economy', label: 'Компактно' },
@@ -452,6 +452,7 @@ const closeDetails = () => {
 
 const pendingImages = new Set()
 const imageOrder = []
+const visibleIds = new Set()
 
 function ensureImage(movie) {
   if (!movie || !movie.poster_path) return
@@ -463,8 +464,16 @@ function ensureImage(movie) {
     pendingImages.delete(movie.id)
     imageMap.set(movie.id, img)
     imageOrder.push(movie.id)
-    while (imageOrder.length > level.value.cache) {
-      imageMap.delete(imageOrder.shift())
+    // Не викидаємо постери, які зараз видно на екрані — інакше вони
+    // перезавантажуються щоразу при поверненні в кадр і «блимають».
+    let guard = imageOrder.length
+    while (imageOrder.length > level.value.cache && guard-- > 0) {
+      const oldest = imageOrder.shift()
+      if (visibleIds.has(oldest)) {
+        imageOrder.push(oldest)
+        continue
+      }
+      imageMap.delete(oldest)
     }
   }
   img.onerror = () => pendingImages.delete(movie.id)
@@ -667,6 +676,7 @@ function render(timestamp = 0) {
 
   renderedCards = []
   let bestHover = null
+  visibleIds.clear()
 
   for (let r = minR; r <= maxR; r++) {
     const stagger = (Math.abs(r) % 2) * (stepX * 0.5)
@@ -762,6 +772,7 @@ function render(timestamp = 0) {
   for (let i = 0; i < renderedCards.length; i++) {
     const card = renderedCards[i]
     ensureImage(card.movie)
+    visibleIds.add(card.movie.id)
     const isHovered =
       hoveredCell.value?.c === card.c &&
       hoveredCell.value?.r === card.r
@@ -1076,10 +1087,14 @@ function onTouchEnd(e) {
   mouseY = -9999
 }
 
-// Wheel zoom around the cursor
+// Wheel: vertical — zoom, horizontal / Shift — pan
 function onWheel(e) {
   if (isOverlayTarget(e)) return
   const rect = stageEl.value.getBoundingClientRect()
+  if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+    targetCamX += (e.deltaX || e.deltaY) * 0.6
+    return
+  }
   applyZoom(zoom * Math.exp(-e.deltaY * 0.0015), e.clientX - rect.left, e.clientY - rect.top)
 }
 
