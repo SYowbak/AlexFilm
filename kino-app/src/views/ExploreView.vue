@@ -289,6 +289,15 @@ const imageMap = new Map()
 const STEP_X = 40
 const STEP_Y = 58
 const MAX_MAGNIFICATION = 5.0 // Smooth scaling
+const MIN_ZOOM = 0.55
+const MAX_ZOOM = 3.5
+let zoom = 1
+let isPinching = false
+let pinchStartDist = 0
+let pinchStartZoom = 1
+let pinchStartCamX = 0
+let pinchStartCamY = 0
+const clampZoom = (value) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, value))
 const GRID_COLS = 26
 const GRID_ROWS = 18
 
@@ -647,34 +656,36 @@ function render(timestamp = 0) {
   // Focused, organic spherical lens radius
   const R = Math.min(225, Math.min(width, height) * 0.38)
   const M = MAX_MAGNIFICATION
+  const stepX = STEP_X * zoom
+  const stepY = STEP_Y * zoom
 
   // Compute visible range of grid cells
-  const minC = Math.floor((camX - width / 2 - R) / STEP_X) - 2
-  const maxC = Math.ceil((camX + width / 2 + R) / STEP_X) + 2
-  const minR = Math.floor((camY - height / 2 - R) / STEP_Y) - 2
-  const maxR = Math.ceil((camY + height / 2 + R) / STEP_Y) + 2
+  const minC = Math.floor((camX - width / 2 - R) / stepX) - 2
+  const maxC = Math.ceil((camX + width / 2 + R) / stepX) + 2
+  const minR = Math.floor((camY - height / 2 - R) / stepY) - 2
+  const maxR = Math.ceil((camY + height / 2 + R) / stepY) + 2
 
   renderedCards = []
   let bestHover = null
 
   for (let r = minR; r <= maxR; r++) {
-    const stagger = (Math.abs(r) % 2) * (STEP_X * 0.5)
+    const stagger = (Math.abs(r) % 2) * (stepX * 0.5)
 
     for (let c = minC; c <= maxC; c++) {
       const movie = getMovieForCell(c, r)
       if (!movie) continue
 
       // Unwarped screen position
-      const x0 = c * STEP_X + stagger - camX + width / 2
-      const y0 = r * STEP_Y - camY + height / 2
+      const x0 = c * stepX + stagger - camX + width / 2
+      const y0 = r * stepY - camY + height / 2
 
       // Warp cell center through the lens at (bulgeX, bulgeY)
       const center = warpScreenPoint(x0, y0, bulgeX, bulgeY, R, M)
 
-      const pLeft = warpScreenPoint(x0 - STEP_X * 0.5, y0, bulgeX, bulgeY, R, M)
-      const pRight = warpScreenPoint(x0 + STEP_X * 0.5, y0, bulgeX, bulgeY, R, M)
-      const pTop = warpScreenPoint(x0, y0 - STEP_Y * 0.5, bulgeX, bulgeY, R, M)
-      const pBottom = warpScreenPoint(x0, y0 + STEP_Y * 0.5, bulgeX, bulgeY, R, M)
+      const pLeft = warpScreenPoint(x0 - stepX * 0.5, y0, bulgeX, bulgeY, R, M)
+      const pRight = warpScreenPoint(x0 + stepX * 0.5, y0, bulgeX, bulgeY, R, M)
+      const pTop = warpScreenPoint(x0, y0 - stepY * 0.5, bulgeX, bulgeY, R, M)
+      const pBottom = warpScreenPoint(x0, y0 + stepY * 0.5, bulgeX, bulgeY, R, M)
 
       const dX = Math.hypot(pRight.x - pLeft.x, pRight.y - pLeft.y)
       const dY = Math.hypot(pBottom.x - pTop.x, pBottom.y - pTop.y)
@@ -837,6 +848,25 @@ function render(timestamp = 0) {
   animId = requestAnimationFrame(render)
 }
 
+function viewportSize() {
+  return {
+    width: canvasEl.value?.clientWidth || stageEl.value?.clientWidth || 1000,
+    height: canvasEl.value?.clientHeight || stageEl.value?.clientHeight || 700,
+  }
+}
+
+function applyZoom(next, centerX, centerY) {
+  const value = clampZoom(next)
+  if (value === zoom) return
+  const ratio = value / zoom
+  const { width, height } = viewportSize()
+  const ax = centerX - width / 2
+  const ay = centerY - height / 2
+  camX = targetCamX = camX * ratio + ax * (ratio - 1)
+  camY = targetCamY = camY * ratio + ay * (ratio - 1)
+  zoom = value
+}
+
 // Mouse Handlers
 function onMouseEnter() {
   if (isRecentTouch()) return
@@ -929,22 +959,33 @@ function pickCardAt(x, y) {
 
 // Touch Handlers
 function onTouchStart(e) {
-  if (e.touches.length !== 1) return
   if (isOverlayTarget(e)) return
-  const t = e.touches[0]
-  // Дотик не є наведенням: не активуємо лінзу й збільшену картку
   lastTouchAt = Date.now()
   isMouseInside = false
   hoveredCell.value = null
   mouseX = -9999
   mouseY = -9999
 
+  if (e.touches.length === 2) {
+    const a = e.touches[0]
+    const b = e.touches[1]
+    isPinching = true
+    isDragging = false
+    pinchStartDist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1
+    pinchStartZoom = zoom
+    pinchStartCamX = camX
+    pinchStartCamY = camY
+    return
+  }
+  if (e.touches.length !== 1) return
+
+  const t = e.touches[0]
   isDragging = true
   hasMoved = false
   dragStartX = t.clientX
   dragStartY = t.clientY
-  dragStartCamX = targetCamX
-  dragStartCamY = targetCamY
+  dragStartCamX = camX
+  dragStartCamY = camY
   lastX = t.clientX
   lastY = t.clientY
   lastTime = performance.now()
@@ -953,8 +994,29 @@ function onTouchStart(e) {
 }
 
 function onTouchMove(e) {
-  if (isOverlayTarget(e) || !isDragging || e.touches.length !== 1) return
+  if (isOverlayTarget(e)) return
   lastTouchAt = Date.now()
+
+  if (isPinching) {
+    if (e.touches.length < 2) return
+    const rect = stageEl.value?.getBoundingClientRect()
+    const a = e.touches[0]
+    const b = e.touches[1]
+    const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)
+    const next = clampZoom(pinchStartZoom * dist / pinchStartDist)
+    const ratio = next / pinchStartZoom
+    const centerX = (a.clientX + b.clientX) / 2 - (rect?.left || 0)
+    const centerY = (a.clientY + b.clientY) / 2 - (rect?.top || 0)
+    const { width, height } = viewportSize()
+    const ax = centerX - width / 2
+    const ay = centerY - height / 2
+    zoom = next
+    camX = targetCamX = pinchStartCamX * ratio + ax * (ratio - 1)
+    camY = targetCamY = pinchStartCamY * ratio + ay * (ratio - 1)
+    return
+  }
+
+  if (!isDragging || e.touches.length !== 1) return
   const t = e.touches[0]
   const dx = t.clientX - dragStartX
   const dy = t.clientY - dragStartY
@@ -978,8 +1040,28 @@ function onTouchMove(e) {
 }
 
 function onTouchEnd(e) {
-  if (!isDragging) return
   lastTouchAt = Date.now()
+
+  if (isPinching) {
+    if (e.touches.length >= 2) return
+    isPinching = false
+    isDragging = false
+    if (e.touches.length === 1) {
+      const t = e.touches[0]
+      isDragging = true
+      hasMoved = false
+      dragStartX = t.clientX
+      dragStartY = t.clientY
+      dragStartCamX = camX
+      dragStartCamY = camY
+      lastX = t.clientX
+      lastY = t.clientY
+      lastTime = performance.now()
+    }
+    return
+  }
+
+  if (!isDragging) return
   isDragging = false
 
   if (!hasMoved && !isOverlayTarget(e)) {
@@ -994,11 +1076,11 @@ function onTouchEnd(e) {
   mouseY = -9999
 }
 
-// Wheel pan
+// Wheel zoom around the cursor
 function onWheel(e) {
   if (isOverlayTarget(e)) return
-  targetCamY += e.deltaY * 0.6
-  targetCamX += (e.deltaX || 0) * 0.6
+  const rect = stageEl.value.getBoundingClientRect()
+  applyZoom(zoom * Math.exp(-e.deltaY * 0.0015), e.clientX - rect.left, e.clientY - rect.top)
 }
 
 // Select a movie from cell click
@@ -1009,9 +1091,9 @@ async function selectMovieCell(cell) {
 
   // Glide camera so the selected cell centers under the lens
   const width = stageEl.value?.clientWidth || 1000
-  const stagger = (Math.abs(cell.r) % 2) * (STEP_X * 0.5)
-  const cellBaseX = cell.c * STEP_X + stagger
-  const cellBaseY = cell.r * STEP_Y
+  const stagger = (Math.abs(cell.r) % 2) * (STEP_X * zoom * 0.5)
+  const cellBaseX = cell.c * STEP_X * zoom + stagger
+  const cellBaseY = cell.r * STEP_Y * zoom
 
   // If on desktop, position it at 65% width to leave room for left panel
   const targetScreenX = width > 768 ? width * 0.65 : width * 0.5
