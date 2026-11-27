@@ -931,6 +931,7 @@ function pickCardAt(x, y) {
 function onTouchStart(e) {
   if (e.touches.length !== 1) return
   if (isOverlayTarget(e)) return
+  const t = e.touches[0]
   // Дотик не є наведенням: не активуємо лінзу й збільшену картку
   lastTouchAt = Date.now()
   isMouseInside = false
